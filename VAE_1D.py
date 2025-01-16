@@ -15,20 +15,27 @@ class VAE_1D(BaseVAE):
             learning_rate (float): Taux d'apprentissage pour l'optimiseur.
         """
         super(VAE_1D, self).__init__(learning_rate)
+
+        # Encoder avec une couche supplémentaire
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(input_dim, 256),  # Nouvelle couche ajoutée
+            nn.ReLU(),
+            nn.Linear(256, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, latent_dim * 2)  # Mu et LogVar
         )
 
+        # Decoder avec une couche supplémentaire
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, 64),
             nn.ReLU(),
             nn.Linear(64, 128),
             nn.ReLU(),
-            nn.Linear(128, input_dim)
+            nn.Linear(128, 256),  # Nouvelle couche ajoutée
+            nn.ReLU(),
+            nn.Linear(256, input_dim)
         )
 
     def encode(self, x):
@@ -72,7 +79,7 @@ class VAE_1D(BaseVAE):
         """
         return self.decoder(z)
 
-    def forward(self, Q, Y=None, metadata=None):
+    def forward(self, Q, Y, metadata):
         """
         Passe avant du modèle (encode -> reparameterize -> decode).
 
@@ -82,8 +89,8 @@ class VAE_1D(BaseVAE):
         Returns:
             torch.Tensor, torch.Tensor, torch.Tensor: Reconstruction, moyenne et logvar.
         """
-        mu, logvar = self.encode(Q)
+        mu, logvar = self.encode(Y)
         z = self.reparameterize(mu, logvar)
         recon = self.decode(z)
-        return Q, recon, mu, logvar
+        return Y, recon, mu, logvar
 

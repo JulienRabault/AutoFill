@@ -60,8 +60,8 @@ def separate_batch_elements(batch):
     Q_list, Y_list, metadata_list = zip(*batch)  # Décompresse les tuples en trois listes
 
     # Convertir les listes en tenseurs
-    Q_tensor = torch.stack(Q_list, dim=0)  # Tensor contenant tous les Q
-    Y_tensor = torch.stack(Y_list, dim=0)  # Tensor contenant tous les Y
-    metadata_tensor = torch.stack(metadata_list, dim=0)  # Tensor contenant toutes les métadonnées
+    Q_tensor = torch.stack(Q_list, dim=0)
+    Y_tensor = torch.stack(Y_list, dim=0)
+    metadata_tensor = torch.stack(metadata_list, dim=0)
 
     return Q_tensor, Y_tensor, metadata_tensor

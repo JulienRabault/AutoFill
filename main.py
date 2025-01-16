@@ -3,13 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
-import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 
 from VAE_1D import VAE_1D
-from VAE_CONV_1D import VAE_conv1D
 from datasetTXT import CustomDatasetVAE
 
 
@@ -53,14 +51,14 @@ def main():
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"Le fichier CSV spécifié est introuvable: {data_csv_path}")
     dataframe = pd.read_csv(data_csv_path)
-    dataframe_LES = dataframe[(dataframe['technique'] == 'les') & (dataframe['material'] == 'au')].sample(frac=0.5)
-    pad_size = 128  # Ajustez selon vos besoins
+    dataframe_LES = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.5)
+    pad_size = 81  # Ajustez selon vos besoins
     dataset = CustomDatasetVAE(dataframe=dataframe_LES, data_dir='../AUTOFILL_data/datav2/Base_de_donnee',
                                pad_size=pad_size)
 
     # Création du DataLoader
     batch_size = 512
-    num_workers = 4
+    num_workers = 14
 
     # Séparation train/val
     train_size = int(0.8 * len(dataset))
@@ -113,14 +111,14 @@ def main():
 
     early_stopping = EarlyStopping(
         monitor='val_loss',
-        patience=2,
+        patience=5,
         verbose=True,
         mode='min'
     )
 
     # Instanciation du Trainer
     trainer = Trainer(
-        max_epochs=10,
+        max_epochs=50,
         devices='auto',
         logger=[logger_tb, logger_csv],
         callbacks=[checkpoint_callback, early_stopping],

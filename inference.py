@@ -36,8 +36,9 @@ def infer_and_plot(model, dataloader, output_dir="inference_results", num_sample
     with torch.no_grad():
         batch = next(iter(dataloader))
         data_q, data_y, metadata = zip(*batch)  # Décomposer les tuples
-        inputs = torch.stack(data_q)  # Empile les données en un tenseur [batch_size, sequence_length]
-        _, reconstructions, _, _ = model(inputs)
+        q = torch.stack(data_q)  # Décomposer les tuples
+        inputs = torch.stack(data_y)
+        _, reconstructions, _, _ = model(q, Y=inputs)
 
         # Tracer les résultats pour un nombre limité d'échantillons
         for i in range(min(len(inputs), num_samples)):
@@ -96,7 +97,7 @@ def plot_training_curves(csv_log_dir, output_dir="plots"):
 
 def main():
     # Chemin du checkpoint et du CSV des données de test
-    checkpoint_path = "checkpoints/vae-epoch=06-val_loss=0.01.ckpt"
+    checkpoint_path = "checkpoints/vae-epoch=16-val_loss=0.13.ckpt"
     data_csv_path = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
 
     if not os.path.exists(checkpoint_path):
@@ -106,8 +107,8 @@ def main():
 
     # Chargement des données de test
     dataframe = pd.read_csv(data_csv_path)
-    dataframe_test = dataframe[(dataframe['technique'] == 'les') & (dataframe['material'] == 'au')].sample(frac=0.2)
-    pad_size = 128  # Ajustez selon vos besoins
+    dataframe_test = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.05)
+    pad_size = 81  # Ajustez selon vos besoins
     dataset_test = CustomDatasetVAE(dataframe=dataframe_test, data_dir='../AUTOFILL_data/datav2/Base_de_donnee',
                                     pad_size=pad_size)
 
