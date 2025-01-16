@@ -51,7 +51,7 @@ def main():
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"Le fichier CSV spécifié est introuvable: {data_csv_path}")
     dataframe = pd.read_csv(data_csv_path)
-    dataframe_LES = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.5)
+    dataframe_LES = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.2)
     pad_size = 81  # Ajustez selon vos besoins
     dataset = CustomDatasetVAE(dataframe=dataframe_LES, data_dir='../AUTOFILL_data/datav2/Base_de_donnee',
                                pad_size=pad_size)
@@ -103,7 +103,6 @@ def main():
     # Callbacks
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
-        dirpath='checkpoints',
         filename='vae-{epoch:02d}-{val_loss:.2f}',
         save_top_k=1,
         mode='min',

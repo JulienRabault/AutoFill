@@ -27,8 +27,8 @@ class BaseVAE(pl.LightningModule):
         return recon_loss + kl_loss, recon_loss, kl_loss
 
     def training_step(self, batch, batch_idx):
-       q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.forward(Q, Y, metadata)
+        q, y, metadata = separate_batch_elements(batch)
+        x, recon, mu, logvar = self.forward( q, y, metadata)
         loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
@@ -37,8 +37,8 @@ class BaseVAE(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-       q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.forward(Q, Y, metadata)
+        q, y, metadata = separate_batch_elements(batch)
+        x, recon, mu, logvar = self.forward(q, y, metadata)
         loss, _, _ = self.compute_loss(x, recon, mu, logvar)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 

@@ -16,7 +16,6 @@ class CustomDatasetVAE(Dataset):
         self.pad_size = pad_size
         self.cat_vocab = self._build_cat_vocab(self.dataframe, self.categorical_cols)
 
-        # Affichage des informations du DataFrame
         self._display_dataframe_info()
 
     def __len__(self):
