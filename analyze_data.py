@@ -10,17 +10,7 @@ from sklearn.model_selection import train_test_split
 from dataset import CustomDatasetVAE
 
 
-def analyze_and_visualize(dataset, dataframe, categorical_cols, numerical_cols, pad_size=80):
-    """
-    Effectue toutes les analyses descriptives et visualisations en une seule boucle.
-
-    Args:
-        dataset (CustomDatasetVAE): Le dataset personnalisé.
-        dataframe (pd.DataFrame): Le dataframe filtré.
-        categorical_cols (list): Liste des colonnes catégorielles.
-        numerical_cols (list): Liste des colonnes numériques.
-        pad_size (int): Taille de padding utilisée dans le dataset.
-    """
+def analyze_and_visualize(dataset, dataframe, categorical_cols, numerical_cols):
     print("\n=== Analyses et Visualisations Optimisées ===")
 
     # 1. Analyse Descriptive des Métadonnées
@@ -211,7 +201,6 @@ def plot_correlation_matrix(dataframe, numerical_cols):
 
 
 def plot_sample_data(sample_data, sample_metadata):
-    """Trace les données de quelques échantillons sélectionnés."""
     for i, (data, metadata) in enumerate(zip(sample_data, sample_metadata)):
         plt.figure(figsize=(10, 4))
         plt.plot(data)
@@ -223,14 +212,6 @@ def plot_sample_data(sample_data, sample_metadata):
 
 
 def analyze_grouped_data(dataframe, group_cols, stats_cols):
-    """
-    Analyse les statistiques des données en fonction des groupes définis par les colonnes de métadonnées.
-
-    Args:
-        dataframe (pd.DataFrame): Le DataFrame contenant les données et les statistiques.
-        group_cols (list): Liste des colonnes de métadonnées pour le groupement.
-        stats_cols (list): Liste des colonnes de statistiques à analyser.
-    """
     for group_col in group_cols:
         print(f"\n=== Analyse par {group_col} ===")
         grouped = dataframe.groupby(group_col)[stats_cols].agg(['mean', 'std', 'min', 'max'])
@@ -254,14 +235,6 @@ def analyze_grouped_data(dataframe, group_cols, stats_cols):
 
 
 def plot_grouped_data(dataframe, group_col, stat_col):
-    """
-    Trace des box plots pour comparer les statistiques entre les groupes de métadonnées.
-
-    Args:
-        dataframe (pd.DataFrame): Le DataFrame contenant les données et les statistiques.
-        group_col (str): La colonne de métadonnées pour le groupement.
-        stat_col (str): La colonne de statistiques à comparer.
-    """
     plt.figure(figsize=(14, 7))
     sns.boxplot(x=group_col, y=stat_col, data=dataframe)
     plt.title(f"Distribution de {stat_col} par {group_col}")
@@ -271,14 +244,12 @@ def plot_grouped_data(dataframe, group_col, stat_col):
 
 
 def normalize_numerical(dataframe, numerical_cols):
-    """Normalise les variables numériques du dataframe."""
     scaler = StandardScaler()
     dataframe[numerical_cols] = scaler.fit_transform(dataframe[numerical_cols].fillna(0.0))
     return scaler
 
 
 def split_dataset(dataframe, test_size=0.2, random_state=42):
-    """Sépare le dataframe en ensembles d'entraînement et de test."""
     train_df, test_df = train_test_split(dataframe, test_size=test_size, random_state=random_state)
     return train_df.reset_index(drop=True), test_df.reset_index(drop=True)
 

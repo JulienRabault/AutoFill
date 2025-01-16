@@ -18,7 +18,7 @@ class BaseVAE(pl.LightningModule):
     def reparameterize(self, mu, logvar):
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def forward(self, Q, Y, metadata):
+    def forward(self,q, y, metadata):
         raise NotImplementedError("Subclasses must implement this method.")
 
     def compute_loss(self, x, recon, mu, logvar):
@@ -27,7 +27,7 @@ class BaseVAE(pl.LightningModule):
         return recon_loss + kl_loss, recon_loss, kl_loss
 
     def training_step(self, batch, batch_idx):
-        Q, Y, metadata = separate_batch_elements(batch)
+       q, y, metadata = separate_batch_elements(batch)
         x, recon, mu, logvar = self.forward(Q, Y, metadata)
         loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
 
@@ -37,7 +37,7 @@ class BaseVAE(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        Q, Y, metadata = separate_batch_elements(batch)
+       q, y, metadata = separate_batch_elements(batch)
         x, recon, mu, logvar = self.forward(Q, Y, metadata)
         loss, _, _ = self.compute_loss(x, recon, mu, logvar)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -49,13 +49,13 @@ class BaseVAE(pl.LightningModule):
 
 def separate_batch_elements(batch):
     """
-    Sépare les éléments d'un batch en trois listes distinctes : Q, Y, et metadata.
+    Sépare les éléments d'un batch en trois listes distinctes :q, y, et metadata.
 
     Args:
         batch (list): Liste de tuples contenant (Q, Y, metadata).
 
     Returns:
-        torch.Tensor, torch.Tensor, torch.Tensor: Tenseurs Q, Y et metadata séparés.
+        torch.Tensor, torch.Tensor, torch.Tensor: Tenseursq, y et metadata séparés.
     """
     Q_list, Y_list, metadata_list = zip(*batch)  # Décompresse les tuples en trois listes
 

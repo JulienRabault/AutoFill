@@ -8,19 +8,7 @@ from torch.utils.data import Dataset
 
 
 class CustomDatasetVAE(Dataset):
-    """Dataset personnalisé qui gère l'encodage de variables catégorielles, numériques
-    et charge des données à partir de fichiers texte.
-    Il gère également les fichiers contenant des 'nan' en les remplaçant par 0.0.
-    Ajout de la fonctionnalité de padding pour uniformiser la taille des échantillons.
-    """
-
     def __init__(self, dataframe, data_dir='../datav2/Base_de_donnee', pad_size=80):
-        """
-        Args:
-            dataframe (pd.DataFrame): DataFrame contenant les données.
-            data_dir (str): Répertoire contenant les fichiers de données.
-            pad_size (int): Taille maximale à laquelle chaque échantillon sera padé.
-        """
         self.dataframe = dataframe
         self.categorical_cols = ['material', 'type', 'method', 'shape', 'researcher', 'technique']
         self.numerical_cols = ['concentration', 'opticalPathLength', 'd', 'h']
@@ -56,13 +44,11 @@ class CustomDatasetVAE(Dataset):
         }
 
     def _process_metadata(self, row):
-        """Encode les variables catégorielles et numériques en un tenseur."""
         cat_features = [self.cat_vocab[col].get(str(row[col]), -1) for col in self.categorical_cols]
         num_features = [row[col] if not pd.isnull(row[col]) else 0.0 for col in self.numerical_cols]
         return torch.tensor(cat_features + num_features, dtype=torch.float32)
 
     def _load_data_from_file(self, file_path):
-        """Charge les données d'un fichier texte et retourne deux listes séparées."""
         normalized_path = os.path.normpath(file_path.replace('\\', os.sep).replace('/', os.sep))
         full_path = normalized_path
 
@@ -107,30 +93,20 @@ class CustomDatasetVAE(Dataset):
         return data_q, data_y
 
     def _normalize_data(self, data_q, data_y):
-        """
-        Normalise deux listes de données (Q et Y) entre 0 et 1.
-
-        Args:
-            data_q (list): Liste des données de la première colonne (Q).
-            data_y (list): Liste des données de la deuxième colonne (Y).
-
-        Returns:
-            torch.Tensor, torch.Tensor: Tenseurs normalisés pour Q et Y.
-        """
         data_q = torch.tensor(data_q, dtype=torch.float32)
         data_y = torch.tensor(data_y, dtype=torch.float32)
-
-        def normalize(data):
-            min_val = torch.min(data)
-            max_val = torch.max(data)
-            range_val = max_val - min_val
-            range_val = range_val if range_val != 0 else 1.0
-            return (data - min_val) / range_val
-
-        normalized_q = normalize(data_q)
-        normalized_y = normalize(data_y)
-
-        return normalized_q, normalized_y
+        return data_q, data_y
+        # def normalize(data):
+        #     min_val = torch.min(data)
+        #     max_val = torch.max(data)
+        #     range_val = max_val - min_val
+        #     range_val = range_val if range_val != 0 else 1.0
+        #     return (data - min_val) / range_val
+        #
+        # normalized_q = normalize(data_q)
+        # normalized_y = normalize(data_y)
+        #
+        # return normalized_q, normalized_y
 
     def _pad_data(self, data_q, data_y):
         """

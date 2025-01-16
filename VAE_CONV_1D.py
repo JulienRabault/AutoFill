@@ -8,12 +8,6 @@ from VAE_base import BaseVAE
 
 class VAE_conv1D(BaseVAE):
     def __init__(self, input_dim=2, latent_dim=64, hidden_dim=128, learning_rate=1e-3):
-        """
-        Args:
-            input_dim (int): Nombre de canaux en entrée (par défaut 2).
-            latent_dim (int): Dimension latente.
-            hidden_dim (int): Dimension intermédiaire des convolutions.
-        """
         super(VAE_conv1D, self).__init__(learning_rate)
 
         # Encodeur
@@ -65,7 +59,7 @@ class VAE_conv1D(BaseVAE):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, Q, Y, metadata):
+    def forward(self,q, y, metadata):
         """
         Effectue un passage avant à travers le VAE.
 

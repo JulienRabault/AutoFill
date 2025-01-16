@@ -38,7 +38,7 @@ def infer_and_plot(model, dataloader, output_dir="inference_results", num_sample
         data_q, data_y, metadata = zip(*batch)  # Décomposer les tuples
         q = torch.stack(data_q)  # Décomposer les tuples
         inputs = torch.stack(data_y)
-        _, reconstructions, _, _ = model(q, Y=inputs)
+        _, reconstructions, _, _ = model(q, inputs)
 
         # Tracer les résultats pour un nombre limité d'échantillons
         for i in range(min(len(inputs), num_samples)):
