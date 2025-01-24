@@ -10,13 +10,13 @@ class VAE_1D(BaseVAE):
 
         # Encoder avec une couche supplémentaire
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 256),  # Nouvelle couche ajoutée
+            nn.Linear(input_dim, 256),
             nn.ReLU(),
             nn.Linear(256, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(64, latent_dim * 2)  # Mu et LogVar
+            nn.Linear(64, latent_dim * 2)
         )
 
         # Decoder avec une couche supplémentaire

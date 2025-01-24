@@ -94,18 +94,13 @@ class CustomDatasetVAE(Dataset):
     def _normalize_data(self, data_q, data_y):
         data_q = torch.tensor(data_q, dtype=torch.float32)
         data_y = torch.tensor(data_y, dtype=torch.float32)
+
+        # Normalisation min-max pour data_q
+        min_q = torch.min(data_q)
+        max_q = torch.max(data_q)
+        data_q = (data_q - min_q) / (max_q - min_q)
+
         return data_q, data_y
-        # def normalize(data):
-        #     min_val = torch.min(data)
-        #     max_val = torch.max(data)
-        #     range_val = max_val - min_val
-        #     range_val = range_val if range_val != 0 else 1.0
-        #     return (data - min_val) / range_val
-        #
-        # normalized_q = normalize(data_q)
-        # normalized_y = normalize(data_y)
-        #
-        # return normalized_q, normalized_y
 
     def _pad_data(self, data_q, data_y):
         """

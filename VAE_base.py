@@ -38,8 +38,8 @@ class BaseVAE(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.forward(q, y, metadata)
-        loss, _, _ = self.compute_loss(x, recon, mu, logvar)
+        x, recon, mu, logvar = self.forward( q, y, metadata)
+        loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self):
@@ -59,7 +59,6 @@ def separate_batch_elements(batch):
     """
     Q_list, Y_list, metadata_list = zip(*batch)  # Décompresse les tuples en trois listes
 
-    # Convertir les listes en tenseurs
     Q_tensor = torch.stack(Q_list, dim=0)
     Y_tensor = torch.stack(Y_list, dim=0)
     metadata_tensor = torch.stack(metadata_list, dim=0)

@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from VAE_1D import VAE_1D
+from conv1DVAE_concat import Conv1DVAE_concat
 from datasetTXT import CustomDatasetVAE
 
 
@@ -15,7 +16,7 @@ def load_model(checkpoint_path, input_dim, latent_dim, learning_rate):
     """
     Charge un modèle VAE pré-entraîné à partir d'un fichier checkpoint.
     """
-    model = VAE_1D(
+    model = Conv1DVAE_concat(
         input_dim=input_dim,
         latent_dim=latent_dim,
         learning_rate=learning_rate
@@ -38,7 +39,7 @@ def infer_and_plot(model, dataloader, output_dir="inference_results", num_sample
         data_q, data_y, metadata = zip(*batch)  # Décomposer les tuples
         q = torch.stack(data_q)  # Décomposer les tuples
         inputs = torch.stack(data_y)
-        _, reconstructions, _, _ = model(q, inputs)
+        _, reconstructions, _, _ = model(q, inputs, metadata)
 
         # Tracer les résultats pour un nombre limité d'échantillons
         for i in range(min(len(inputs), num_samples)):
@@ -55,9 +56,7 @@ def infer_and_plot(model, dataloader, output_dir="inference_results", num_sample
             print(f"Reconstruction enregistrée dans : {plot_path}")
 
 def plot_training_curves(csv_log_dir, output_dir="plots"):
-    """
-    Trace les courbes d'entraînement et de validation dans des graphes distincts à partir des logs CSV.
-    """
+    # Lire le fichier CSV
     os.makedirs(output_dir, exist_ok=True)
     log_file = os.path.join(csv_log_dir, "metrics.csv")
 
@@ -67,37 +66,59 @@ def plot_training_curves(csv_log_dir, output_dir="plots"):
 
     data = pd.read_csv(log_file)
 
-    metrics = [
-        ("train_loss_step", "Train Loss (Step)"),
-        ("val_loss", "Validation Loss"),
-        ("kl_loss_step", "KL Loss (Step)"),
-        ("recon_loss_step", "Reconstruction Loss (Step)")
+    # Liste des colonnes de perte
+    loss_columns = [
+        'kl_loss_epoch', 'kl_loss_step',
+        'recon_loss_epoch', 'recon_loss_step',
+        'train_loss_epoch', 'train_loss_step',
+        'val_loss'
     ]
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    axes = axes.flatten()  # Aplatir l'array pour accéder facilement aux sous-graphes
+    # Créer une figure pour les époques
+    fig_epoch, axs_epoch = plt.subplots(len(loss_columns) // 2, 1, figsize=(10, 12))
+    fig_epoch.suptitle('Loss vs Epoch')
 
-    for idx, (column, label) in enumerate(metrics):
-        ax = axes[idx]
-        if column in data.columns:
-            ax.plot(data["step"], data[column], label=label)
-        ax.set_xlabel("Steps")
-        ax.set_ylabel("Loss")
-        ax.set_title(label)
-        ax.legend()
-        ax.grid(True)
+    # Créer une figure pour les étapes
+    fig_step, axs_step = plt.subplots(len(loss_columns) // 2, 1, figsize=(10, 12))
+    fig_step.suptitle('Loss vs Step')
 
-    plot_path = os.path.join(output_dir, "training_curves.png")
-    plt.tight_layout()  # Pour éviter que les titres ne se chevauchent
-    plt.savefig(plot_path)
-    plt.show()
-    print(f"Courbes enregistrées dans : {plot_path}")
+    epoch_index = 0
+    step_index = 0
 
+    # Générer les courbes
+    for loss_col in loss_columns:
+        if 'epoch' in loss_col:
+            x_col = 'epoch'
+            filtered_df = data.dropna(subset=[loss_col, x_col])
+            axs_epoch[epoch_index].plot(filtered_df[x_col], filtered_df[loss_col], label=loss_col)
+            axs_epoch[epoch_index].set_xlabel('epoch')
+            axs_epoch[epoch_index].set_ylabel(loss_col)
+            axs_epoch[epoch_index].set_title(f'{loss_col} vs {x_col}')
+            axs_epoch[epoch_index].legend()
+            axs_epoch[epoch_index].grid(True)
+            epoch_index += 1
+        elif 'step' in loss_col:
+            x_col = 'step'
+            filtered_df = data.dropna(subset=[loss_col, x_col])
+            axs_step[step_index].plot(filtered_df[x_col], filtered_df[loss_col], label=loss_col)
+            axs_step[step_index].set_xlabel('step')
+            axs_step[step_index].set_ylabel(loss_col)
+            axs_step[step_index].set_title(f'{loss_col} vs {x_col}')
+            axs_step[step_index].legend()
+            axs_step[step_index].grid(True)
+            step_index += 1
+
+    # Sauvegarder les figures
+    plt.tight_layout()
+    fig_epoch.savefig(os.path.join(output_dir, 'loss_vs_epoch.png'))
+    fig_step.savefig(os.path.join(output_dir, 'loss_vs_step.png'))
+    plt.close(fig_epoch)
+    plt.close(fig_step)
 
 
 def main():
     # Chemin du checkpoint et du CSV des données de test
-    checkpoint_path = "checkpoints/vae-epoch=16-val_loss=0.13.ckpt"
+    checkpoint_path = "tb_logs/vae_model/version_7/checkpoints/vae-epoch=00-val_loss=0.23.ckpt"
     data_csv_path = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
 
     if not os.path.exists(checkpoint_path):
@@ -107,7 +128,7 @@ def main():
 
     # Chargement des données de test
     dataframe = pd.read_csv(data_csv_path)
-    dataframe_test = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.05)
+    dataframe_test = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.1,random_state=0)
     pad_size = 81  # Ajustez selon vos besoins
     dataset_test = CustomDatasetVAE(dataframe=dataframe_test, data_dir='../AUTOFILL_data/datav2/Base_de_donnee',
                                     pad_size=pad_size)
@@ -130,7 +151,7 @@ def main():
     infer_and_plot(model, test_loader, output_dir="inference_results", num_samples=5)
 
     # Tracer les courbes d'entraînement
-    plot_training_curves(csv_log_dir="csv_logs/vae_model/version_0")
+    plot_training_curves(csv_log_dir="csv_logs/vae_model/version_7")
 
 
 if __name__ == "__main__":
