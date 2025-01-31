@@ -1,131 +1,190 @@
-import h5py
-import pandas as pd
+import json
 import os
-import warnings
-import logging
+import pandas as pd
+import numpy as np
+import h5py
 from tqdm import tqdm
+import warnings
+import math
+class TextToHDF5Converter:
+    def __init__(self, dataframe, data_dir, output_dir, pad_size=2000, hdf_cache=100000, final_output_file='final_output.h5'):
+        self.dataframe = dataframe
+        self.data_dir = data_dir
+        self.output_dir = output_dir
+        self.pad_size = pad_size
+        self.hdf_cache = hdf_cache
+        self.hdf_data = self._initialize_hdf_data()
+        self.hdf_files = None
+        self.categorical_cols = ['material', 'type', 'method', 'shape', 'researcher', 'technique']
+        self.numerical_cols = ['concentration', 'opticalPathLength', 'd', 'h']
+        self.unique_values = {col: set() for col in self.categorical_cols}
+        self.conversion_dict = {col: {} for col in self.categorical_cols}
+        self.final_output_file = final_output_file
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+    def _initialize_hdf_data(self):
+        return [
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_q
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_y
+            np.zeros((self.hdf_cache, len(self.dataframe.columns)-2)),  # metadata
+            np.zeros((self.hdf_cache,)), # len
+            np.zeros((self.hdf_cache,)) # csv index
+        ]
 
-def convert_txt_to_hdf5(dataframe, data_dir='../datav2/Base_de_donnee', output_file='data.h5', flush_interval=10000):
-    """
-    Convertit les fichiers texte listés dans le dataframe en un fichier HDF5.
+    def _create_hdf(self, output_file):
+        hdf = h5py.File(output_file, "w")
+        hdf.create_dataset("data_q", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_y", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("metadata", (1, len(self.dataframe.columns) - 2),
+                           maxshape=(None, len(self.dataframe.columns) - 2))
+        hdf.create_dataset("len", (1,), maxshape=(None,))
+        hdf.create_dataset("csv_index", (1,), maxshape=(None,))
+        return hdf
 
-    :param dataframe: DataFrame contenant les chemins et métadonnées
-    :param data_dir: Chemin du répertoire contenant les fichiers texte
-    :param output_file: Nom du fichier de sortie HDF5
-    :param flush_interval: Nombre de fichiers avant chaque flush dans le fichier HDF5
-    """
-    # Création du fichier HDF5
-    f = h5py.File(output_file, 'w')
-    metadata_group = f.create_group('metadata')
-    data_group = f.create_group('data')
+    def _flush_into_hdf5(self, current_index, current_size):
+        self.hdf_files["data_q"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_q"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size, :]
+        self.hdf_files["data_y"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_y"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size, :]
+        self.hdf_files["metadata"].resize((current_index + current_size, len(self.dataframe.columns)-2))
+        self.hdf_files["metadata"][current_index:current_index + current_size, :] = self.hdf_data[2][:current_size, :]
+        self.hdf_files["len"].resize((current_index + current_size,))
+        self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[3][:current_size]
+        self.hdf_files["csv_index"].resize((current_index + current_size,))
+        self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[4][:current_size]
+        self.hdf_files.flush()
 
-    categorical_cols = ['material', 'type', 'method', 'shape', 'researcher', 'technique']
-    numerical_cols = ['concentration', 'opticalPathLength', 'd', 'h']
+    def _load_data_from_file(self, file_path):
+        normalized_path = os.path.normpath(file_path.replace('\\', os.sep).replace('/', os.sep))
+        full_path = normalized_path
 
-    # Stockage des métadonnées
-    cat_vocab = {}
-    for col in categorical_cols:
-        cat_vocab[col] = dataframe[col].astype(str).unique().tolist()
-        metadata_group.create_dataset(col, data=[s.encode('utf-8') for s in cat_vocab[col]])
+        if not os.path.exists(full_path):
+            warnings.warn(f"Fichier manquant: {full_path}")
+            return [], []
 
-    for col in numerical_cols:
-        metadata_group.create_dataset(col, data=dataframe[col].values)
+        data_q = []  # Liste pour la première colonne
+        data_y = []  # Liste pour la deuxième colonne
+        expected_num_columns = 2  # S'assurer qu'on attend deux colonnes
 
-    # Traitement des fichiers texte
-    buffer = []
-    for idx, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc="Processing files"):
-        relative_path = row['path']
-        try:
-            data_q, data_y = _load_data_from_file(os.path.join(data_dir, relative_path))
-
-            dataset_id = f'data_{idx}'
-            buffer.append((f'{dataset_id}_q', data_q))
-            buffer.append((f'{dataset_id}_y', data_y))
-
-            # Flush du buffer
-            if len(buffer) >= flush_interval:
-                _flush_to_hdf5(data_group, buffer)
-                buffer = []
-
-        except Exception as e:
-            warnings.warn(f"Error loading file {relative_path}: {e}")
-            continue
-
-    # Flush final
-    if buffer:
-        _flush_to_hdf5(data_group, buffer)
-
-    f.close()
-
-
-def _flush_to_hdf5(data_group, buffer):
-    """
-    Enregistre les données du buffer dans le fichier HDF5.
-
-    :param data_group: Groupe de données dans le fichier HDF5
-    :param buffer: Liste de tuples (nom du dataset, données)
-    """
-    for dataset_name, data in buffer:
-        data_group.create_dataset(dataset_name, data=data)
-
-
-def _load_data_from_file(file_path):
-    """
-    Charge les données depuis un fichier texte.
-
-    :param file_path: Chemin complet du fichier texte
-    :return: Deux listes : data_q et data_y
-    """
-    normalized_path = os.path.normpath(file_path.replace('\\', os.sep).replace('/', os.sep))
-    full_path = normalized_path
-
-    if not os.path.exists(full_path):
-        warnings.warn(f"File missing: {full_path}")
-        return [], []
-
-    data_q = []
-    data_y = []
-    with open(full_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-
-            if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
-                continue
-            tokens = line.split()
-            if len(tokens) == 2:
-                try:
-                    q_value = float(tokens[0])
-                    y_value = float(tokens[1])
-
-                    data_q.append(q_value)
-                    data_y.append(y_value)
-                except ValueError:
-                    warnings.warn(f"Error converting line: {line}")
+        with open(full_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
                     continue
-    return data_q, data_y
 
+                if ';' in line:
+                    tokens = line.split(';')
+                elif ',' in line:
+                    tokens = line.split(',')
+                else:
+                    tokens = line.split()
 
-def main():
-    """
-    Point d'entrée principal du programme.
-    """
+                try:
+                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if token != '']
+                except ValueError:
+                    continue
+
+                if len(values) != expected_num_columns:
+                    continue
+
+                values = [0.0 if (math.isnan(v) or math.isinf(v)) else v for v in values]
+
+                if len(values) == expected_num_columns:
+                    data_q.append(values[0])
+                    data_y.append(values[1])
+
+        if not data_q or not data_y:
+            raise ValueError(f"Pas de données valides trouvées dans: {full_path}")
+        return np.array(data_q, dtype=np.float64), np.array(data_y, dtype=np.float64)
+
+    def _pad_data(self, data_q, data_y):
+        if len(data_q) < self.pad_size:
+            data_q = np.pad(data_q, (0, self.pad_size - len(data_q)), 'constant')
+            data_y = np.pad(data_y, (0, self.pad_size - len(data_y)), 'constant')
+        elif len(data_q) > self.pad_size:
+            data_q = data_q[:self.pad_size]
+            data_y = data_y[:self.pad_size]
+        return data_q, data_y
+
+    def _collect_unique_values(self, row):
+        for col in self.categorical_cols:
+            self.unique_values[col].add(row[col])
+
+    def _convert_metadata(self, row):
+        converted_metadata = row.copy()
+        converted_metadata.drop('path', inplace=True)
+        converted_metadata.drop('date', inplace=True)
+
+        for col in self.categorical_cols:
+            if col in converted_metadata:
+                value = converted_metadata[col]
+                if pd.isna(value) or value is None:  # Vérifie si la valeur est NaN ou None
+                    value = -1  # Remplacer par une valeur spécifique, comme -1 pour les valeurs manquantes
+
+                if value not in self.conversion_dict[col]:
+                    self.conversion_dict[col][value] = len(self.conversion_dict[col])
+                converted_metadata[col] = self.conversion_dict[col][value]
+
+        return converted_metadata
+
+    def convert(self):
+        output_file = os.path.join(self.output_dir, self.final_output_file)
+        self.hdf_files = self._create_hdf(output_file)
+        current_size = 0
+        current_index = 0
+
+        with tqdm(total=len(self.dataframe), desc="Processing files") as pbar:
+            for idx, row in self.dataframe.iterrows():
+                pbar.update(1)
+                self._collect_unique_values(row)
+                relative_path = row['path']
+                file_path = os.path.join(self.data_dir, relative_path)
+                try:
+                    data_q, data_y = self._load_data_from_file(file_path)
+                    original_len = len(data_q)
+                    data_q, data_y = self._pad_data(data_q, data_y)
+                except Exception as e:
+                    data_q = np.zeros((self.pad_size,), dtype=np.float64)
+                    data_y = np.zeros((self.pad_size,), dtype=np.float64)
+                    original_len = 0
+                    warnings.warn(f"Erreur lors du chargement du fichier {relative_path}: {e}")
+
+                metadata = self._convert_metadata(row).to_numpy()
+                self.hdf_data[0][current_size, :] = data_q
+                self.hdf_data[1][current_size, :] = data_y
+                self.hdf_data[2][current_size] = metadata
+                self.hdf_data[3][current_size] = original_len
+                self.hdf_data[4][current_size] = idx
+                current_size += 1
+
+                if current_size == self.hdf_cache:
+                    self._flush_into_hdf5(current_index, current_size)
+                    current_index += self.hdf_cache
+                    current_size = 0
+
+        if current_size > 0:
+            self._flush_into_hdf5(current_index, current_size)
+        self.hdf_files.close()
+
+        print("Converted Metadata:")
+        print(self.dataframe.head())
+        print("Conversion Dictionary:")
+        print(self.conversion_dict)
+        with open('conversion_dictv2.json', 'w') as f:
+            json.dump(self.conversion_dict, f)
+
+        print("Dictionnaire sauvegardé dans 'conversion_dict.json'")
+
+if __name__ == "__main__":
     data_csv_path = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
+
     dataframe = pd.read_csv(data_csv_path)
-
-    required_columns = ['path', 'material', 'type', 'method', 'shape', 'researcher', 'technique', 'concentration',
-                        'opticalPathLength', 'd', 'h']
-    if not all(col in dataframe.columns for col in required_columns):
-        raise ValueError(f"DataFrame must contain the following columns: {required_columns}")
-
-    logger.info("Starting conversion of .txt files to HDF5...")
-    convert_txt_to_hdf5(dataframe, data_dir='../AUTOFILL_data/datav2/Base_de_donnee', output_file='data.h5')
-    logger.info("Conversion complete.")
-
-
-if __name__ == '__main__':
-    main()
+    data_dir = '../AUTOFILL_data/datav2/Base_de_donnee'
+    final_output_file = 'data.h5'
+    # print all colum
+    print(dataframe.columns)
+    print(dataframe.head())
+    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)
+    converter.convert()
+    print(f"Data successfully converted to {final_output_file}")

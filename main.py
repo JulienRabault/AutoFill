@@ -21,7 +21,7 @@ def main():
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"Le fichier CSV spécifié est introuvable: {data_csv_path}")
     dataframe = pd.read_csv(data_csv_path)
-    dataframe_LES = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.1,random_state=0)
+    dataframe_LES = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.2, random_state=0)
     pad_size = 81  # Ajustez selon vos besoins
     dataset = CustomDatasetVAE(dataframe=dataframe_LES, data_dir='../AUTOFILL_data/datav2/Base_de_donnee',
                                pad_size=pad_size)
@@ -55,13 +55,13 @@ def main():
     learning_rate = 1e-4
 
     hidden_dim = 64
-    vae = Conv1DVAE_2_feature(pad_size, latent_dim, learning_rate=learning_rate)
+    # vae = Conv1DVAE_2_feature(pad_size, latent_dim, learning_rate=learning_rate)
 
-    # vae = VAE_1D(
-    #     input_dim=pad_size,
-    #     learning_rate=learning_rate,
-    #     latent_dim=latent_dim,
-    # )
+    vae = VAE_1D(
+        input_dim=pad_size,
+        learning_rate=learning_rate,
+        latent_dim=latent_dim,
+    )
 
     # Configuration des Loggers
     logger_tb = TensorBoardLogger("tb_logs", name="vae_model")
@@ -84,11 +84,12 @@ def main():
 
     # Instanciation du Trainer
     trainer = Trainer(
-        max_epochs=50,
+        max_epochs=1,
         devices='auto',
         logger=[logger_tb, logger_csv],
         callbacks=[checkpoint_callback, early_stopping],
         log_every_n_steps=10,
+                        profiler="simple"
     )
 
     # Entraînement

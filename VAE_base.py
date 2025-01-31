@@ -24,7 +24,7 @@ class BaseVAE(pl.LightningModule):
     def compute_loss(self, x, recon, mu, logvar):
         recon_loss = F.mse_loss(recon, x, reduction='mean')
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
-        return recon_loss + kl_loss, recon_loss, kl_loss
+        return 0.9 * recon_loss +  0.1 * kl_loss, recon_loss, kl_loss
 
     def training_step(self, batch, batch_idx):
         q, y, metadata = separate_batch_elements(batch)

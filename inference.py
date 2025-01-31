@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from VAE_1D import VAE_1D
+from conv1DVAE_2_feature import Conv1DVAE_2_feature
 from conv1DVAE_concat import Conv1DVAE_concat
 from datasetTXT import CustomDatasetVAE
 
@@ -16,7 +17,7 @@ def load_model(checkpoint_path, input_dim, latent_dim, learning_rate):
     """
     Charge un modèle VAE pré-entraîné à partir d'un fichier checkpoint.
     """
-    model = Conv1DVAE_concat(
+    model = VAE_1D(
         input_dim=input_dim,
         latent_dim=latent_dim,
         learning_rate=learning_rate
@@ -118,7 +119,7 @@ def plot_training_curves(csv_log_dir, output_dir="plots"):
 
 def main():
     # Chemin du checkpoint et du CSV des données de test
-    checkpoint_path = "tb_logs/vae_model/version_7/checkpoints/vae-epoch=00-val_loss=0.23.ckpt"
+    checkpoint_path = "tb_logs/vae_model/version_0/checkpoints/vae-epoch=01-val_loss=0.11.ckpt"
     data_csv_path = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
 
     if not os.path.exists(checkpoint_path):
@@ -151,7 +152,7 @@ def main():
     infer_and_plot(model, test_loader, output_dir="inference_results", num_samples=5)
 
     # Tracer les courbes d'entraînement
-    plot_training_curves(csv_log_dir="csv_logs/vae_model/version_7")
+    plot_training_curves(csv_log_dir="csv_logs/vae_model/version_0")
 
 
 if __name__ == "__main__":
