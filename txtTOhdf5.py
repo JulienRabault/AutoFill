@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     dataframe = pd.read_csv(data_csv_path)
     data_dir = '../AUTOFILL_data/datav2/Base_de_donnee'
-    final_output_file = 'data.h5'
+    final_output_file = 'data_pad_90.h5'
     print(dataframe.columns)
     print(dataframe.head())
     converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)

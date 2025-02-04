@@ -1,139 +1,176 @@
 import math
 import os
+import time
 import warnings
 
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
 
 class CustomDatasetVAE(Dataset):
-    def __init__(self, dataframe, data_dir='../datav2/Base_de_donnee', pad_size=80):
+    def __init__(self, dataframe, data_dir='../datav2/Base_de_donnee',
+                 pad_size=80, enable_timing=True):
         self.dataframe = dataframe
         self.categorical_cols = ['material', 'type', 'method', 'shape', 'researcher', 'technique']
         self.numerical_cols = ['concentration', 'opticalPathLength', 'd', 'h']
         self.data_dir = data_dir
         self.pad_size = pad_size
-        self.cat_vocab = self._build_cat_vocab(self.dataframe, self.categorical_cols)
+        self.enable_timing = enable_timing
 
+        # Pré-traitement des métadonnées
+        self.cat_vocab = self._build_cat_vocab()
+        self.metadata_tensor = self._preprocess_metadata()
+
+        # Cache pour les données chargées
+        self.data_cache = {}
+
+        # Stockage des temps pour calcul des moyennes
+        self.timing_stats = {'metadata': 0.0, 'load_data': 0.0, 'processing': 0.0}
+        self.sample_count = 0
+
+        # Affichage des infos du dataset
         self._display_dataframe_info()
 
     def __len__(self):
         return len(self.dataframe)
 
     def __getitem__(self, idx):
-        row = self.dataframe.iloc[idx]
-        relative_path = row['path']
-        metadata = self._process_metadata(row)
-        try:
-            data_q, data_y = self._load_data_from_file(os.path.join(self.data_dir, relative_path))
-            data_q, data_y = self._normalize_data(data_q, data_y)
-            data_q, data_y = self._pad_data(data_q, data_y)
-        except Exception as e:
-            data_q = torch.zeros((self.pad_size,), dtype=torch.float32)
-            data_y = torch.zeros((self.pad_size,), dtype=torch.float32)
-            warnings.warn(f"Erreur lors du chargement du fichier {relative_path}: {e}")
-        return data_q, data_y, metadata
+        timers = {'start': time.perf_counter()} if self.enable_timing else None
 
-    def _build_cat_vocab(self, df, categorical_cols):
-        """Construit le vocabulaire pour chaque variable catégorielle."""
+        # Récupération des métadonnées pré-calculées
+        metadata = self.metadata_tensor[idx]
+        if self.enable_timing:
+            timers['metadata'] = time.perf_counter()
+
+        # Chargement des données avec cache
+        relative_path = self.dataframe.iloc[idx]['path']
+        file_path = os.path.join(self.data_dir, relative_path)
+
+        if file_path not in self.data_cache:
+            try:
+                q, y = self._load_data_from_file(file_path)
+                self.data_cache[file_path] = (q, y)
+            except Exception as e:
+                warnings.warn(f"Erreur fichier {file_path}: {e}")
+                q = y = torch.zeros(self.pad_size)
+                self.data_cache[file_path] = (q, y)
+
+        data_q, data_y = self.data_cache[file_path]
+
+        if self.enable_timing:
+            timers['load_data'] = time.perf_counter()
+
+        # Post-processing
+        data_q, data_y = self._normalize_data(data_q, data_y)
+        data_q, data_y = self._pad_data(data_q, data_y)
+
+        if self.enable_timing:
+            timers['processing'] = time.perf_counter()
+            self._update_timing_stats(timers)
+
+        return data_q, data_y, metadata, 1
+
+    def _build_cat_vocab(self):
+        """Construction vectorisée du vocabulaire catégoriel"""
         return {
-            col: {val: idx for idx, val in enumerate(df[col].astype(str).unique())}
-            for col in categorical_cols
+            col: {val: idx for idx, val in enumerate(self.dataframe[col].astype(str).unique())}
+            for col in self.categorical_cols
         }
 
-    def _process_metadata(self, row):
-        cat_features = [self.cat_vocab[col].get(str(row[col]), -1) for col in self.categorical_cols]
-        num_features = [row[col] if not pd.isnull(row[col]) else 0.0 for col in self.numerical_cols]
-        return torch.tensor(cat_features + num_features, dtype=torch.float32)
+    def _preprocess_metadata(self):
+        """Pré-traitement vectorisé des métadonnées"""
+        # Traitement des catégoriques
+        cat_data = [
+            self.dataframe[col].astype(str).map(self.cat_vocab[col]).fillna(-1).astype(float)
+            for col in self.categorical_cols
+        ]
+
+        # Traitement des numériques
+        num_data = self.dataframe[self.numerical_cols].fillna(0.0).astype(float)
+
+        # Combinaison des données
+        combined = pd.concat([pd.DataFrame(cat_data).T, num_data], axis=1)
+        return torch.tensor(combined.values, dtype=torch.float32)
 
     def _load_data_from_file(self, file_path):
+        """Chargement optimisé avec pandas"""
+
         normalized_path = os.path.normpath(file_path.replace('\\', os.sep).replace('/', os.sep))
-        full_path = normalized_path
+        try:
+            df = pd.read_csv(
+                normalized_path,
+                comment='#',
+                sep='[;,\\s]+',
+                engine='python',
+                usecols=[0, 1],
+                names=['q', 'y'],
+                header=None,
+                dtype=np.float32
+            )
+        except Exception as e:
+            raise ValueError(f"Read error ({file_path}): {e}")
 
-        if not os.path.exists(full_path):
-            warnings.warn(f"Fichier manquant: {full_path}")
-            return [], []
+        df = df.dropna().replace([np.inf, -np.inf], 0.0)
 
-        data_q = []  # Liste pour la première colonne
-        data_y = []  # Liste pour la deuxième colonne
-        expected_num_columns = 2  # S'assurer qu'on attend deux colonnes
+        if df.empty:
+            return torch.zeros(self.pad_size), torch.zeros(self.pad_size)
 
-        with open(full_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
-                    continue
+        return torch.tensor(df['q'].values, dtype=torch.float32), \
+            torch.tensor(df['y'].values, dtype=torch.float32)
 
-                if ';' in line:
-                    tokens = line.split(';')
-                elif ',' in line:
-                    tokens = line.split(',')
-                else:
-                    tokens = line.split()
+    def _normalize_data(self, q, y):
+        """Normalisation vectorisée"""
+        if len(q) > 0:
+            q_min, q_max = q.min(), q.max()
+            if q_max > q_min:
+                q = (q - q_min) / (q_max - q_min)
+        return q, y
 
-                try:
-                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if token != '']
-                except ValueError:
-                    continue
+    def _pad_data(self, q, y):
+        """Padding optimisé"""
 
-                if len(values) != expected_num_columns:
-                    continue
+        def _pad(tensor):
+            if len(tensor) < self.pad_size:
+                return torch.cat([tensor, torch.zeros(self.pad_size - len(tensor))])
+            return tensor[:self.pad_size]
 
-                values = [0.0 if (math.isnan(v) or math.isinf(v)) else v for v in values]
+        return _pad(q), _pad(y)
 
-                if len(values) == expected_num_columns:
-                    data_q.append(values[0])
-                    data_y.append(values[1])
+    def _update_timing_stats(self, timers):
+        """Mise à jour des statistiques de temps moyen"""
+        self.sample_count += 1
+        self.timing_stats['metadata'] += timers['metadata'] - timers['start']
+        self.timing_stats['load_data'] += timers['load_data'] - timers['metadata']
+        self.timing_stats['processing'] += timers['processing'] - timers['load_data']
 
-        if not data_q or not data_y:
-            raise ValueError(f"Pas de données valides trouvées dans: {full_path}")
+        if self.sample_count >= (len(self.dataframe) // os.cpu_count()) *0.85:
+            self._print_timing_summary()
+            self.sample_count = 0
 
-        return data_q, data_y
-
-    def _normalize_data(self, data_q, data_y):
-        data_q = torch.tensor(data_q, dtype=torch.float32)
-        data_y = torch.tensor(data_y, dtype=torch.float32)
-
-        # Normalisation min-max pour data_q
-        min_q = torch.min(data_q)
-        max_q = torch.max(data_q)
-        data_q = (data_q - min_q) / (max_q - min_q)
-
-        return data_q, data_y
-
-    def _pad_data(self, data_q, data_y):
-        """
-        Applique le padding ou la troncature sur deux listes de données (Q et Y) pour qu'elles aient une taille uniforme.
-
-        Args:
-            data_q (list): Liste des données de la première colonne (Q).
-            data_y (list): Liste des données de la deuxième colonne (Y).
-
-        Returns:
-            torch.Tensor, torch.Tensor: Tenseurs padés à la taille `pad_size`.
-        """
-
-        def pad(data, pad_size):
-            num_rows = data.size(0)
-            if num_rows < pad_size:
-                padding_rows = pad_size - num_rows
-                pad_tensor = torch.zeros(padding_rows, dtype=torch.float32)
-                return torch.cat([data, pad_tensor], dim=0)
-            elif num_rows > pad_size:
-                return data[:pad_size]
-            return data
-
-        padded_q = pad(data_q, self.pad_size)
-        padded_y = pad(data_y, self.pad_size)
-
-        return padded_q, padded_y
+    def _print_timing_summary(self):
+        """Affichage des moyennes des temps de traitement"""
+        print("\n📊 Moyennes des temps de traitement (par échantillon) :")
+        print("══════════════════════════════════════════════════")
+        for stage, total_time in self.timing_stats.items():
+            print(f"▶ {stage.ljust(12)} : {total_time / self.sample_count:.6f} s")
+        print("══════════════════════════════════════════════════\n")
 
     def _display_dataframe_info(self):
-        """Affiche les informations du DataFrame pour aider au débogage et à la validation."""
-        print("\n=== Informations du DataFrame ===")
-        print(f"Nombre de lignes : {len(self.dataframe)}")
-        print("Colonnes disponibles :", self.dataframe.columns.tolist())
-        print("Aperçu des premières lignes :")
-        print(self.dataframe.head())
-        print("=================================\n")
+        """Affichage des informations du dataset"""
+        print("\n📌 Informations sur le Dataset :")
+        print("══════════════════════════════════════════════════")
+        print(f"▶ Nombre total d'échantillons : {len(self.dataframe)}")
+        print(f"▶ Colonnes catégoriques : {self.categorical_cols}")
+        print(f"▶ Colonnes numériques : {self.numerical_cols}")
+
+        # Affichage des valeurs uniques pour les colonnes catégoriques
+        print("\n📋 Catégories uniques :")
+        for col in self.categorical_cols:
+            print(f"  - {col}: {len(self.dataframe[col].unique())} valeurs uniques")
+
+        # Statistiques sur les valeurs numériques
+        print("\n📈 Statistiques des colonnes numériques :")
+        print(self.dataframe[self.numerical_cols].describe())
+        print("══════════════════════════════════════════════════\n")
