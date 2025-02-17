@@ -11,7 +11,7 @@ from collections import defaultdict
 from tqdm import tqdm
 
 class HDF5Dataset(Dataset):
-    def __init__(self, hdf5_file, pad_size=None, normalize=False, metadata_filters=None,
+    def __init__(self, hdf5_file, pad_size=None, normalize=True, metadata_filters=None,
                  conversion_dict_path=None, frac=1, enable_timing=False,
                  requested_metadata=[]):
         """
@@ -26,8 +26,8 @@ class HDF5Dataset(Dataset):
         # Initialize timing statistics
         self.timing_stats = defaultdict(list)
         self.samples_processed = 0
-        self.data_q = self.hdf['data_q'][...]
-        self.data_y = self.hdf['data_y'][...]
+        self.data_q = self.hdf['data_q']
+        self.data_y = self.hdf['data_y']
         self.csv_index = self.hdf['csv_index']
 
         # Identify available metadata columns
@@ -196,7 +196,7 @@ class HDF5Dataset(Dataset):
         if self.enable_timing:
             self._update_timing_stats(timers, idx)
 
-        return data_q, data_y, metadata, 1
+        return data_q, data_y, metadata, self.csv_index[original_idx]
 
     def _update_timing_stats(self, timers, idx):
         """Update timing statistics and display averages when complete"""
@@ -236,7 +236,6 @@ class HDF5Dataset(Dataset):
         print("╘══════════════════════════════════════════════╛\n")
 
     def _normalize_data(self, data_q, data_y):
-        # Convertir en tensors si ce n'est pas déjà le cas
         if not isinstance(data_q, torch.Tensor):
             data_q = torch.tensor(data_q, dtype=torch.float32)
         if not isinstance(data_y, torch.Tensor):
@@ -270,6 +269,11 @@ class HDF5Dataset(Dataset):
         padded_y = pad(data_y, self.pad_size)
 
         return padded_q, padded_y
+
+    def close(self):
+        """Close the HDF5 file"""
+        self.hdf.close()
+
 
 
 def load_data_from_file(file_path):

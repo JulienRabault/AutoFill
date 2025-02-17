@@ -17,11 +17,10 @@ def load_model(checkpoint_path, input_dim, latent_dim, learning_rate):
     """
     Charge un modèle VAE pré-entraîné à partir d'un fichier checkpoint.
     """
-    model = VAE_1D(
-        input_dim=input_dim,
-        latent_dim=latent_dim,
-        learning_rate=learning_rate
-    )
+
+    # model = Conv1DVAE_concat(input_dim, latent_dim, learning_rate=learning_rate)
+
+    model = Conv1DVAE_2_feature(input_dim, latent_dim, learning_rate=learning_rate)
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     model.load_state_dict(checkpoint['state_dict'])
     model.eval()
@@ -37,7 +36,7 @@ def infer_and_plot(model, dataloader, output_dir="inference_results", num_sample
     model.eval()
     with torch.no_grad():
         batch = next(iter(dataloader))
-        data_q, data_y, metadata = zip(*batch)  # Décomposer les tuples
+        data_q, data_y, metadata, _ = zip(*batch)  # Décomposer les tuples
         q = torch.stack(data_q)  # Décomposer les tuples
         inputs = torch.stack(data_y)
         _, reconstructions, _, _ = model(q, inputs, metadata)
@@ -119,7 +118,7 @@ def plot_training_curves(csv_log_dir, output_dir="plots"):
 
 def main():
     # Chemin du checkpoint et du CSV des données de test
-    checkpoint_path = "tb_logs/vae_model/version_0/checkpoints/vae-epoch=01-val_loss=0.11.ckpt"
+    checkpoint_path = "tb_logs/vae_model/version_10/checkpoints/vae-epoch=06-val_loss=0.26.ckpt"
     data_csv_path = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
 
     if not os.path.exists(checkpoint_path):
@@ -152,7 +151,7 @@ def main():
     infer_and_plot(model, test_loader, output_dir="inference_results", num_samples=5)
 
     # Tracer les courbes d'entraînement
-    plot_training_curves(csv_log_dir="csv_logs/vae_model/version_0")
+    plot_training_curves(csv_log_dir="csv_logs/vae_model/version_10/")
 
 
 if __name__ == "__main__":

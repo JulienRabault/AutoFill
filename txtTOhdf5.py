@@ -1,11 +1,4 @@
-import json
-import os
-import pandas as pd
-import numpy as np
-import h5py
-from tqdm import tqdm
-import warnings
-import math
+
 import os
 import json
 import pandas as pd
@@ -192,10 +185,12 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
 
     dataframe = pd.read_csv(data_csv_path)
+    dataframe_c = (dataframe[(dataframe['technique'] == 'les')])
+    dataframe_c = dataframe_c[(dataframe['material'] == 'ag')].sample(frac=0.1)
     data_dir = '../AUTOFILL_data/datav2/Base_de_donnee'
-    final_output_file = 'data_pad_90.h5'
-    print(dataframe.columns)
-    print(dataframe.head())
-    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)
+    final_output_file = 'data_sample_0-1_les_ag.h5'
+    print(dataframe_c.columns)
+    print(dataframe_c.head())
+    converter = TextToHDF5Converter(dataframe=dataframe_c, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)
     converter.convert()
     print(f"Data successfully converted to {final_output_file}")

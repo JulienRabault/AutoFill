@@ -5,8 +5,8 @@ from VAE_base import BaseVAE
 
 
 class VAE_1D(BaseVAE):
-    def __init__(self, input_dim, latent_dim, learning_rate=1e-3):
-        super(VAE_1D, self).__init__(learning_rate)
+    def __init__(self, input_dim, latent_dim, learning_rate=1e-3, **kwargs):
+        super(VAE_1D, self).__init__(learning_rate, **kwargs)
 
         # Encoder avec une couche supplémentaire
         self.encoder = nn.Sequential(

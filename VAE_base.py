@@ -2,12 +2,15 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+
 
 class BaseVAE(pl.LightningModule):
-    def __init__(self, learning_rate=1e-3):
+    def __init__(self, learning_rate=1e-3, beta=0.2):
         super(BaseVAE, self).__init__()
         self.save_hyperparameters()
         self.learning_rate = learning_rate
+        self.beta = beta
 
     def encode(self, x):
         raise NotImplementedError("Subclasses must implement this method.")
@@ -23,8 +26,8 @@ class BaseVAE(pl.LightningModule):
 
     def compute_loss(self, x, recon, mu, logvar):
         recon_loss = F.mse_loss(recon, x, reduction='mean')
-        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
-        return 0.9 * recon_loss +  0.1 * kl_loss, recon_loss, kl_loss
+        kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
+        return recon_loss + self.beta * kl_div, recon_loss, kl_div
 
     def training_step(self, batch, batch_idx):
         q, y, metadata = separate_batch_elements(batch)
@@ -57,7 +60,7 @@ def separate_batch_elements(batch):
     Returns:
         torch.Tensor, torch.Tensor, torch.Tensor: Tenseursq, y et metadata séparés.
     """
-    Q_list, Y_list, metadata_list = zip(*batch)  # Décompresse les tuples en trois listes
+    Q_list, Y_list, metadata_list, _ = zip(*batch)
 
     Q_tensor = torch.stack(Q_list, dim=0)
     Y_tensor = torch.stack(Y_list, dim=0)
