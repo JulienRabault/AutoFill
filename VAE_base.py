@@ -30,8 +30,8 @@ class BaseVAE(pl.LightningModule):
         return recon_loss + self.beta * kl_div, recon_loss, kl_div
 
     def training_step(self, batch, batch_idx):
-        q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.forward( q, y, metadata)
+        # q, y, metadata = separate_batch_elements(batch)
+        x, recon, mu, logvar = self.forward( batch)
         loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
@@ -40,8 +40,8 @@ class BaseVAE(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.forward( q, y, metadata)
+        # q, y, metadata = separate_batch_elements(batch)
+        x, recon, mu, logvar = self.forward(batch)
         loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
@@ -60,10 +60,13 @@ def separate_batch_elements(batch):
     Returns:
         torch.Tensor, torch.Tensor, torch.Tensor: Tenseursq, y et metadata séparés.
     """
-    Q_list, Y_list, metadata_list, _ = zip(*batch)
+    # print(len(batch))
+    # Q_list, Y_list, metadata_list, _ = zip(*batch)
+    #
+    # Q_tensor = torch.stack(Q_list, dim=0)
+    # Y_tensor = torch.stack(Y_list, dim=0)
+    # metadata_tensor = torch.stack(metadata_list, dim=0)
+    #
+    # return Q_tensor, Y_tensor, metadata_tensor
 
-    Q_tensor = torch.stack(Q_list, dim=0)
-    Y_tensor = torch.stack(Y_list, dim=0)
-    metadata_tensor = torch.stack(metadata_list, dim=0)
-
-    return Q_tensor, Y_tensor, metadata_tensor
+    return batch

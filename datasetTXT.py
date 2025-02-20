@@ -80,7 +80,7 @@ class CustomDatasetVAE(Dataset):
             timers['processing'] = time.perf_counter()
             self._update_timing_stats(timers)
 
-        return data_q, data_y, metadata, 1
+        return {"data_q": data_q, "data_y": data_y, "metadata": metadata, "csv_index": idx}
 
     def _build_cat_vocab(self):
         """Construction vectorisée du vocabulaire catégoriel"""

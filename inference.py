@@ -119,7 +119,7 @@ def plot_training_curves(csv_log_dir, output_dir="plots"):
 def main():
     # Chemin du checkpoint et du CSV des données de test
     checkpoint_path = "tb_logs/vae_model/version_10/checkpoints/vae-epoch=06-val_loss=0.26.ckpt"
-    data_csv_path = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
+    data_csv_path = '/projects/pnria/DATA/AUTOFILL/merged_cleaned_data.csv'
 
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint introuvable : {checkpoint_path}")
@@ -130,7 +130,7 @@ def main():
     dataframe = pd.read_csv(data_csv_path)
     dataframe_test = dataframe[(dataframe['technique'] == 'les')].sample(frac=0.1,random_state=0)
     pad_size = 81  # Ajustez selon vos besoins
-    dataset_test = CustomDatasetVAE(dataframe=dataframe_test, data_dir='../AUTOFILL_data/datav2/Base_de_donnee',
+    dataset_test = CustomDatasetVAE(dataframe=dataframe_test, data_dir='/projects/pnria/DATA/AUTOFILL/Base_de_donnee',
                                     pad_size=pad_size)
 
     test_loader = DataLoader(

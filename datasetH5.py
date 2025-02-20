@@ -196,7 +196,8 @@ class HDF5Dataset(Dataset):
         if self.enable_timing:
             self._update_timing_stats(timers, idx)
 
-        return data_q, data_y, metadata, self.csv_index[original_idx]
+        # return data_q, data_y, metadata, self.csv_index[original_idx]
+        return {"data_q": data_q, "data_y": data_y, "metadata": metadata, "csv_index": self.csv_index[original_idx]}
 
     def _update_timing_stats(self, timers, idx):
         """Update timing statistics and display averages when complete"""
@@ -296,8 +297,8 @@ def load_data_from_file(file_path):
 
 if __name__ == "__main__":
     hdf5_file = 'data.h5'
-    csv_file = '../AUTOFILL_data/datav2/merged_cleaned_data.csv'
-    data_dir = '../AUTOFILL_data/datav2/Base_de_donnee'
+    csv_file = '/projects/pnria/DATA/AUTOFILL/merged_cleaned_data.csv'
+    data_dir = '/projects/pnria/DATA/AUTOFILL/Base_de_donnee'
     pad_size = 2000
     conversion_dict_path = 'conversion_dict.json'
     metadata_filters = {"technique": ["les"]}

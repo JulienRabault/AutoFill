@@ -10,36 +10,78 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 
+import matplotlib.pyplot as plt
+import pytorch_lightning as pl
 from SVAE import CustomizableVAE
 from VAE_1D import VAE_1D
 from conv1DVAE_2_feature import Conv1DVAE_2_feature
 from conv1DVAE_concat import Conv1DVAE_concat
-from datasetTXT import CustomDatasetVAE
-from mainH5 import InferencePlotCallback
+from datasetH5 import HDF5Dataset
+
+class InferencePlotCallback(pl.Callback):
+    def __init__(self, dataloader, output_dir="inference_results"):
+        super().__init__()
+        self.dataloader = dataloader
+        self.output_dir = output_dir
+
+    def on_validation_end(self, trainer, pl_module):
+        self.infer_and_plot(pl_module)
+
+    def infer_and_plot(self, model,):
+        """
+        Perform inference and save reconstruction results in a single plot with subplots.
+        """
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        model.eval().to("cuda")
+        with torch.no_grad():
+            batch = next(iter(self.dataloader))
+            for el in batch:
+                if isinstance(batch[el], torch.Tensor):
+                    batch[el] = batch[el].to("cuda")
+            data_y = batch["data_y"]
+            inputs = data_y
+
+            _, reconstructions, _, _ = model(batch)
+
+            # Create a single figure with subplots arranged in 2x2 grid
+            fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+            axs = axs.ravel()  # Flatten the array for easier iteration
+
+            # Plot each sample in a subplot
+            for i in range(min(len(inputs), 4)):
+                ax = axs[i]
+                ax.plot(inputs[i].cpu().numpy(), label="Original")
+                ax.plot(reconstructions[i].cpu().numpy(), label="Reconstructed")
+                ax.set_title(f"Sample {i}")
+                ax.legend()
+                ax.grid(True)
+
+            # Adjust layout and save
+            plt.tight_layout()
+            plot_path = os.path.join(self.output_dir, "combined_reconstructions.png")
+            plt.savefig(plot_path)
+            plt.close()
 
 
 def collate_batch(batch):
     return batch
 
-
 def parse_args():
-    """
-    Analyse les arguments de la ligne de commande.
-    """
     parser = argparse.ArgumentParser(description="Entraînement d'un VAE customisable")
     # Chemins et filtres dataset
-    parser.add_argument("--data_csv_path", type=str, default="../AUTOFILL_data/datav2/merged_cleaned_data.csv",
-                        help="Chemin vers le fichier CSV des données")
-    parser.add_argument("--data_dir", type=str, default="../AUTOFILL_data/datav2/Base_de_donnee",
-                        help="Répertoire contenant les données")
+    parser.add_argument("--name", type=str, default="customizable_vae",)
+    parser.add_argument("--devices", type=int,)
+    parser.add_argument("--hdf5_file", type=str, default="data.h5",
+                        help="Chemin vers le fichier HDF5 des données")
+    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict.json",
+                        help="Chemin vers le dictionnaire de conversion des métadonnées")
     parser.add_argument("--technique", type=str, default="les",
                         help="Filtre pour la colonne 'technique'")
     parser.add_argument("--material", type=str, default="ag",
                         help="Filtre pour la colonne 'material'")
-    parser.add_argument("--sample_frac", type=float, default=0.8,
-                        help="Fraction d'échantillonnage du dataset après filtrage")
     # Paramètres d'entraînement
-    parser.add_argument("--log_dir", type=str, default="logs_txt",
+    parser.add_argument("--log_dir", type=str, default="runs",
                         help="Répertoire de sortie pour les logs")
     parser.add_argument("--model", type=str, default="customizable",
                         choices=["customizable", "vae1d", "conv1d_2_feature", "conv1d_concat"],
@@ -52,14 +94,16 @@ def parse_args():
                         help="Taux d'apprentissage. Par défaut: 5e-4 pour 'customizable', 1e-4 sinon")
     parser.add_argument("--beta", type=float, default=0.00001,
                         help="Coefficient beta pour le VAE")
-    parser.add_argument("--batch_size", type=int, default=512,
+    parser.add_argument("--batch_size", type=int, default=128,
                         help="Taille du batch")
-    parser.add_argument("--max_epochs", type=int, default=20,
+    parser.add_argument("--max_epochs", type=int, default=50,
                         help="Nombre maximum d'époques")
     parser.add_argument("--patience", type=int, default=5,
                         help="Patience pour l'arrêt précoce")
     parser.add_argument("--num_workers", type=int, default=os.cpu_count(),
                         help="Nombre de workers pour le DataLoader")
+    parser.add_argument("--sample_frac", type=float, default=1,
+                        help="Fraction d'échantillonnage du dataset après filtrage")
     return parser.parse_args()
 
 
@@ -80,53 +124,17 @@ class TrainingManager:
             else:
                 self.args.learning_rate = 1e-4
 
-    def load_dataframe(self):
-        """
-        Charge le dataframe depuis le fichier CSV.
-        """
-        if not os.path.exists(self.args.data_csv_path):
-            raise FileNotFoundError(f"Fichier CSV introuvable: {self.args.data_csv_path}")
-        dataframe = pd.read_csv(self.args.data_csv_path)
-        print(f"Nombre total de données: {len(dataframe)}")
-        return dataframe
 
-    def filter_dataframe(self, dataframe):
-        """
-        Applique les filtres sur le dataframe.
-        """
-        df_filtered = dataframe[dataframe['technique'] == self.args.technique]
-        df_filtered = df_filtered[df_filtered['material'] == self.args.material].sample(frac=self.args.sample_frac)
-        print(f"Nombre de données après filtrage: {len(df_filtered)}")
-        return df_filtered
+    def load_dataset(self):
+        dataset = HDF5Dataset(
+            hdf5_file=self.args.hdf5_file,
+            pad_size=self.args.pad_size,
+            metadata_filters={"technique": [self.args.technique], "material": [self.args.material]},
+            conversion_dict_path=self.args.conversion_dict_path,
+            frac=self.args.sample_frac
 
-    def create_dataloaders(self, df_filtered):
-        """
-        Crée les DataLoaders pour l'entraînement et la validation.
-        """
-        dataset = CustomDatasetVAE(
-            dataframe=df_filtered,
-            data_dir=self.args.data_dir,
-            pad_size=self.args.pad_size
         )
-        train_size = int(0.9 * len(dataset))
-        val_size = len(dataset) - train_size
-        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=self.args.batch_size,
-            shuffle=True,
-            num_workers=self.args.num_workers,
-            collate_fn=collate_batch
-        )
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=self.args.batch_size,
-            shuffle=False,
-            num_workers=self.args.num_workers,
-            collate_fn=collate_batch
-        )
-        print(f"Train size: {train_size}, Validation size: {val_size}")
-        return train_loader, val_loader
+        return dataset
 
     def create_model(self):
         """
@@ -171,8 +179,8 @@ class TrainingManager:
         """
         Configure les loggers TensorBoard et CSV.
         """
-        logger_tb = TensorBoardLogger(self.args.log_dir, name="vae_model")
-        logger_csv = CSVLogger(self.args.log_dir, name="vae_model_csv")
+        logger_tb = TensorBoardLogger(self.args.log_dir, name=self.args.name)
+        logger_csv = CSVLogger(self.args.log_dir, name=self.args.name)
         return [logger_tb, logger_csv]
 
     def create_callbacks(self, val_loader):
@@ -181,11 +189,11 @@ class TrainingManager:
         """
         checkpoint_callback = ModelCheckpoint(
             monitor='val_loss',
-            filename='vae-{epoch:02d}-{val_loss:.2f}',
+            filename='vae-{epoch:02d}-{val_loss:.5f}',
             save_top_k=1,
             mode='min',
         )
-        inference_plot_callback = InferencePlotCallback(val_loader, output_dir=self.args.log_dir)
+        inference_plot_callback = InferencePlotCallback(val_loader, output_dir=os.path.join(self.args.log_dir, self.args.name))
         early_stopping = EarlyStopping(
             monitor='val_loss',
             patience=self.args.patience,
@@ -194,23 +202,18 @@ class TrainingManager:
         )
         return [checkpoint_callback, early_stopping, inference_plot_callback]
 
+
     def run(self):
-        """
-        Exécute le processus d'entraînement.
-        """
-        dataframe = self.load_dataframe()
-        df_filtered = self.filter_dataframe(dataframe)
-        train_loader, val_loader = self.create_dataloaders(df_filtered)
+        dataset = self.load_dataset()
+        train_size = int(0.9 * len(dataset))
+        val_size = len(dataset) - train_size
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+        train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
+        val_loader = DataLoader(val_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers)
         model = self.create_model()
         loggers = self.create_loggers()
         callbacks = self.create_callbacks(val_loader)
-        trainer = Trainer(
-            max_epochs=self.args.max_epochs,
-            devices="auto",
-            logger=loggers,
-            callbacks=callbacks,
-            log_every_n_steps=10,
-        )
+        trainer = Trainer(max_epochs=self.args.max_epochs, logger=loggers, callbacks=callbacks, log_every_n_steps=10, accelerator="gpu", devices=self.args.devices)
         trainer.fit(model, train_loader, val_loader)
 
 

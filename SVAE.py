@@ -75,11 +75,11 @@ class CustomizableVAE(BaseVAE):
             z = layer(z)
         return self.output_layer(z)
 
-    def forward(self, q, y, metadata):
+    def forward(self, batch):
         if self.strat == "q":
-            x = q
+            x = batch["data_q"]
         elif self.strat == "y":
-            x = y
+            x = batch["data_y"]
         else:
             raise ValueError("strat must be 'q' or 'y'")
         mu, logvar = self.encode(x)
