@@ -31,6 +31,7 @@ class TextToHDF5Converter:
             np.zeros((self.hdf_cache, self.pad_size)),  # data_y
             np.zeros((self.hdf_cache,)),  # len
             np.zeros((self.hdf_cache,)),  # csv index
+            np.zeros((self.hdf_cache,)),  # pair index
             {col: np.zeros((self.hdf_cache,)) for col in self.metadata_cols}  # Métadonnées
         ]
 
@@ -40,6 +41,7 @@ class TextToHDF5Converter:
         hdf.create_dataset("data_y", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
         hdf.create_dataset("len", (1,), maxshape=(None,))
         hdf.create_dataset("csv_index", (1,), maxshape=(None,))
+        hdf.create_dataset("pair_index", (1,), maxshape=(None,))
 
         # Création des datasets pour chaque métadonnée
         for col in self.metadata_cols:
@@ -57,10 +59,12 @@ class TextToHDF5Converter:
         self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[2][:current_size]
         self.hdf_files["csv_index"].resize((current_index + current_size,))
         self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[3][:current_size]
+        self.hdf_files["pair_index"].resize((current_index + current_size,))
+        self.hdf_files["pair_index"][current_index:current_index + current_size] = self.hdf_data[4][:current_size]
 
         for col in self.metadata_cols:
             self.hdf_files[col].resize((current_index + current_size,))
-            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[4][col][:current_size]
+            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[5][col][:current_size]
 
         self.hdf_files.flush()
 
@@ -72,9 +76,9 @@ class TextToHDF5Converter:
             warnings.warn(f"Fichier manquant: {full_path}")
             return [], []
 
-        data_q = []  # Liste pour la première colonne
-        data_y = []  # Liste pour la deuxième colonne
-        expected_num_columns = 2  # S'assurer qu'on attend deux colonnes
+        data_q = []
+        data_y = []
+        expected_num_columns = 2
 
         with open(full_path, 'r') as f:
             for line in f:

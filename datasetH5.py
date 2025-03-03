@@ -30,18 +30,14 @@ class HDF5Dataset(Dataset):
         self.data_y = self.hdf['data_y']
         self.csv_index = self.hdf['csv_index']
 
-        # Identify available metadata columns
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
                              ['data_q', 'data_y', 'len', 'csv_index']]
         self.metadata_datasets = {col: self.hdf[col] for col in all_metadata_cols}
 
-        # Handle requested metadata
         self.requested_metadata = self._validate_requested_metadata(requested_metadata, all_metadata_cols)
 
-        # Load conversion dictionary
         self.conversion_dict = self._load_conversion_dict(conversion_dict_path)
 
-        # Apply metadata filters using vectorized operations
         self.metadata_filters = metadata_filters or {}
         self.filtered_indices = self._apply_metadata_filters()
         self.len_after_filter = len(self.filtered_indices)
@@ -69,8 +65,7 @@ class HDF5Dataset(Dataset):
         print(f"│ Samples filtered: {self.len_after_filter:<23} │")
         print(f"│ Requested fraction: {self.frac:<22} │")
         print(f"│ Fractioned samples: {len(self.filtered_indices):<22} │")
-        print(
-            f"│ Requested metadata: {', '.join(self.requested_metadata) if self.requested_metadata else 'None':<15} │")
+        # print(f"│ Metadata filters: {self.metadata_filters:<25} │")
         print(f"│ Pad size: {str(self.pad_size) if self.pad_size else 'None':<30} │")
         print(f"│ Normalization: {str(self.normalize):<28} │")
         print("╘══════════════════════════════════════════════╛\n")
@@ -137,10 +132,6 @@ class HDF5Dataset(Dataset):
             return torch.empty((len(self.filtered_indices), 0))
 
         metadata_columns = []
-
-        # print("Start of sorted_indices")
-        # sorted_indices = sorted(self.filtered_indices)
-        # print("End of sorted_indices")
         for col in tqdm(self.requested_metadata, desc="Preprocessing metadata"):
             data = self.metadata_datasets[col][self.filtered_indices]
 
