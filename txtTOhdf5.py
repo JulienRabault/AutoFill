@@ -11,7 +11,7 @@ import math
 
 class TextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date']):
+                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date', 'material']):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -19,7 +19,6 @@ class TextToHDF5Converter:
         self.hdf_cache = hdf_cache
         self.metadata_cols = [col for col in dataframe.columns if col not in exclude]
         self.conversion_dict = {col: {} for col in self.metadata_cols if dataframe[col].dtype == object}
-        print(self.conversion_dict)
         self.hdf_data = self._initialize_hdf_data()
         self.hdf_files = None
         self.final_output_file = final_output_file
@@ -29,7 +28,7 @@ class TextToHDF5Converter:
         return [
             np.zeros((self.hdf_cache, self.pad_size)),  # data_q
             np.zeros((self.hdf_cache, self.pad_size)),  # data_y
-            np.zeros((self.hdf_cache,)),  # len
+            np.zeros((self.hdf_cache,)),  # original len
             np.zeros((self.hdf_cache,)),  # csv index
             np.zeros((self.hdf_cache,)),  # pair index
             {col: np.zeros((self.hdf_cache,)) for col in self.metadata_cols}  # Métadonnées
@@ -80,7 +79,7 @@ class TextToHDF5Converter:
         data_y = []
         expected_num_columns = 2
 
-        with open(full_path, 'r') as f:
+        with open(full_path, 'r', encoding="utf-8" ) as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
@@ -102,7 +101,6 @@ class TextToHDF5Converter:
                     continue
 
                 values = [0.0 if (math.isnan(v) or math.isinf(v)) else v for v in values]
-
                 if len(values) == expected_num_columns:
                     data_q.append(values[0])
                     data_y.append(values[1])
@@ -164,8 +162,9 @@ class TextToHDF5Converter:
                 self.hdf_data[1][current_size] = data_y
                 self.hdf_data[2][current_size] = original_len
                 self.hdf_data[3][current_size] = idx
+                self.hdf_data[4][current_size] = (row['pair_index'] if 'pair_index' in row else -1)
                 for col in self.metadata_cols:
-                    self.hdf_data[4][col][current_size] = metadata[col]
+                    self.hdf_data[5][col][current_size] = metadata[col]
                 current_size += 1
 
                 if current_size == self.hdf_cache:
@@ -184,15 +183,15 @@ class TextToHDF5Converter:
 
 
 if __name__ == "__main__":
-    data_csv_path = '/projects/pnria/DATA/AUTOFILL/merged_cleaned_data.csv'
+    data_csv_path = '/mnt/data/WORK/AUTOFILL_data/datav2bis/metadatabis.csv'
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
 
     dataframe = pd.read_csv(data_csv_path)
     # dataframe_c = (dataframe[(dataframe['technique'] == 'les')])
     # dataframe_c = dataframe_c[(dataframe['material'] == 'ag')].sample(frac=0.1)
-    data_dir = '/projects/pnria/DATA/AUTOFILL/Base_de_donnee'
-    final_output_file = 'data.h5'
+    data_dir = '/mnt/data/WORK/AUTOFILL_data/datav2bis/SAXS_100k_Curve_Au_Ag/SAXS_100k_Curve_Au_Ag/'
+    final_output_file = 'databis.h5'
     print(dataframe.columns)
     print(dataframe.head())
     converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)

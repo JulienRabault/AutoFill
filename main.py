@@ -43,12 +43,8 @@ class InferencePlotCallback(pl.Callback):
             inputs = data_y
 
             _, reconstructions, _, _ = model(batch)
-
-            # Create a single figure with subplots arranged in 2x2 grid
             fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-            axs = axs.ravel()  # Flatten the array for easier iteration
 
-            # Plot each sample in a subplot
             for i in range(min(len(inputs), 4)):
                 ax = axs[i]
                 ax.plot(inputs[i].cpu().numpy(), label="Original")
