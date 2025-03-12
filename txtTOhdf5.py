@@ -11,7 +11,7 @@ import math
 
 class TextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date']):
+                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'], json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -24,6 +24,7 @@ class TextToHDF5Converter:
         self.hdf_files = None
         self.final_output_file = final_output_file
         self.exclude = exclude
+        self.json_output = json_output
 
     def _initialize_hdf_data(self):
         return [
@@ -31,7 +32,6 @@ class TextToHDF5Converter:
             np.zeros((self.hdf_cache, self.pad_size)),  # data_y
             np.zeros((self.hdf_cache,)),  # original len
             np.zeros((self.hdf_cache,)),  # csv index
-            np.zeros((self.hdf_cache,)),  # pair index
             {col: np.zeros((self.hdf_cache,)) for col in self.metadata_cols}  # Métadonnées
         ]
 
@@ -41,7 +41,6 @@ class TextToHDF5Converter:
         hdf.create_dataset("data_y", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
         hdf.create_dataset("len", (1,), maxshape=(None,))
         hdf.create_dataset("csv_index", (1,), maxshape=(None,))
-        hdf.create_dataset("pair_index", (1,), maxshape=(None,))
 
         # Création des datasets pour chaque métadonnée
         for col in self.metadata_cols:
@@ -59,12 +58,10 @@ class TextToHDF5Converter:
         self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[2][:current_size]
         self.hdf_files["csv_index"].resize((current_index + current_size,))
         self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[3][:current_size]
-        self.hdf_files["pair_index"].resize((current_index + current_size,))
-        self.hdf_files["pair_index"][current_index:current_index + current_size] = self.hdf_data[4][:current_size]
 
         for col in self.metadata_cols:
             self.hdf_files[col].resize((current_index + current_size,))
-            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[5][col][:current_size]
+            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[4][col][:current_size]
 
         self.hdf_files.flush()
 
@@ -80,7 +77,7 @@ class TextToHDF5Converter:
         data_y = []
         expected_num_columns = 2
 
-        with open(full_path, 'r', encoding="utf-8" ) as f:
+        with open(full_path, 'r', encoding="utf-8-sig" ) as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
@@ -164,9 +161,8 @@ class TextToHDF5Converter:
                 self.hdf_data[1][current_size] = data_y
                 self.hdf_data[2][current_size] = original_len
                 self.hdf_data[3][current_size] = idx
-                self.hdf_data[4][current_size] = (row['pair_index'] if 'pair_index' in row else -1)
                 for col in self.metadata_cols:
-                    self.hdf_data[5][col][current_size] = metadata[col]
+                    self.hdf_data[4][col][current_size] = metadata[col]
                 current_size += 1
 
                 if current_size == self.hdf_cache:
@@ -178,24 +174,25 @@ class TextToHDF5Converter:
             self._flush_into_hdf5(current_index, current_size)
         self.hdf_files.close()
 
-        with open("conversion_dict.json", "w") as f:
+        with open(self.json_output, "w") as f:
             json.dump(self.conversion_dict, f)
+        print(f"Conversion terminée, dictionnaire sauvegardé : {self.json_output}")
 
         print("Conversion terminée, dictionnaire sauvegardé.")
 
 
 if __name__ == "__main__":
-    data_csv_path = '/projects/pnria/DATA/AUTOFILL/merged_cleaned_data.csv'
+    data_csv_path = "/projects/pnria/DATA/AUTOFILL/all_data.csv"
+
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
 
     dataframe = pd.read_csv(data_csv_path)
-    # dataframe_c = (dataframe[(dataframe['technique'] == 'les')])
-    # dataframe_c = dataframe_c[(dataframe['material'] == 'ag')].sample(frac=0.1)
-    data_dir = '/projects/pnria/DATA/AUTOFILL/Base_de_donnee'
-    final_output_file = 'data.h5'
+    data_dir = '/projects/pnria/DATA/AUTOFILL/'
+    final_output_file = 'all_data.h5'
+    json_output = 'conversion_dict_all.json'
     print(dataframe.columns)
     print(dataframe.head())
-    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)
+    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file, json_output=json_output)
     converter.convert()
     print(f"Data successfully converted to {final_output_file}")

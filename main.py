@@ -46,6 +46,7 @@ class InferencePlotCallback(pl.Callback):
 
             _, reconstructions, _, _ = model(batch)
             fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+            axs = axs.ravel()
 
             for i in range(min(len(inputs), 4)):
                 ax = axs[i]
@@ -55,7 +56,6 @@ class InferencePlotCallback(pl.Callback):
                 ax.legend()
                 ax.grid(True)
 
-            # Adjust layout and save
             plt.tight_layout()
             plot_path = os.path.join(self.output_dir, "combined_reconstructions.png")
             plt.savefig(plot_path)
@@ -70,9 +70,9 @@ def parse_args():
     # Chemins et filtres dataset
     parser.add_argument("--name", type=str, default="customizable_vae",)
     parser.add_argument("--devices", type=int,)
-    parser.add_argument("--hdf5_file", type=str, default="data.h5",
+    parser.add_argument("--hdf5_file", type=str, default="all_data.h5",
                         help="Chemin vers le fichier HDF5 des données")
-    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict.json",
+    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict_all.json",
                         help="Chemin vers le dictionnaire de conversion des métadonnées")
     parser.add_argument("--technique", type=str, default="les",
                         help="Filtre pour la colonne 'technique'")
@@ -90,7 +90,7 @@ def parse_args():
                         help="Dimension latente")
     parser.add_argument("--learning_rate", type=float, default=None,
                         help="Taux d'apprentissage. Par défaut: 5e-4 pour 'customizable', 1e-4 sinon")
-    parser.add_argument("--beta", type=float, default=0.00001,
+    parser.add_argument("--beta", type=float, default=0.0001,
                         help="Coefficient beta pour le VAE")
     parser.add_argument("--batch_size", type=int, default=128,
                         help="Taille du batch")
@@ -129,7 +129,8 @@ class TrainingManager:
             pad_size=self.args.pad_size,
             metadata_filters={"technique": [self.args.technique], "material": [self.args.material]},
             conversion_dict_path=self.args.conversion_dict_path,
-            frac=self.args.sample_frac
+            frac=self.args.sample_frac,
+            to_normalize= ['data_y'] if self.args.technique == 'saxs' else []
 
         )
         return dataset

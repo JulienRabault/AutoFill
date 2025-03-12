@@ -11,17 +11,17 @@ from collections import defaultdict
 from tqdm import tqdm
 
 class HDF5Dataset(Dataset):
-    def __init__(self, hdf5_file, pad_size=None, normalize=True, metadata_filters=None,
+    def __init__(self, hdf5_file, pad_size=None, metadata_filters=None,
                  conversion_dict_path=None, frac=1, enable_timing=False,
-                 requested_metadata=[]):
+                 requested_metadata=[], to_normalize=[]):
         """
         Optimized PyTorch Dataset for HDF5 files with selective metadata preprocessing
         """
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
         self.pad_size = pad_size
-        self.normalize = normalize
         self.enable_timing = enable_timing
+        self.to_normalize = to_normalize
 
         # Initialize timing statistics
         self.timing_stats = defaultdict(list)
@@ -61,13 +61,22 @@ class HDF5Dataset(Dataset):
         print("╞══════════════════════════════════════════════╡")
         print(f"│ File: {self.hdf5_file:<35} │")
         print(f"│ Total samples: {len(self.data_q):<26} │")
-        # print(f"│ Filter dict metadata: {self.metadata_filters:<15} │")
         print(f"│ Samples filtered: {self.len_after_filter:<23} │")
         print(f"│ Requested fraction: {self.frac:<22} │")
         print(f"│ Fractioned samples: {len(self.filtered_indices):<22} │")
-        # print(f"│ Metadata filters: {self.metadata_filters:<25} │")
         print(f"│ Pad size: {str(self.pad_size) if self.pad_size else 'None':<30} │")
-        print(f"│ Normalization: {str(self.normalize):<28} │")
+        print(f"│ To normalization: {str(self.to_normalize):<28} │")
+
+        # Calcul des normes de data_y
+        data_y_tensor = torch.tensor(self.data_y[:])  # Conversion en tensor PyTorch
+        norm_l1 = torch.norm(data_y_tensor, p=1).item()
+        norm_l2 = torch.norm(data_y_tensor, p=2).item()
+        norm_max = torch.norm(data_y_tensor, p=float('inf')).item()
+
+        print(f"│ Norme L1 de data_y: {norm_l1:<24.4f} │")
+        print(f"│ Norme L2 de data_y: {norm_l2:<24.4f} │")
+        print(f"│ Norme max de data_y: {norm_max:<22.4f} │")
+
         print("╘══════════════════════════════════════════════╛\n")
 
     def _validate_requested_metadata(self, requested, available):
@@ -171,7 +180,7 @@ class HDF5Dataset(Dataset):
             timers['metadata'] = time.perf_counter()
 
         # Data processing
-        if self.normalize:
+        if self.to_normalize:
             data_q, data_y = self._normalize_data(data_q, data_y)
         if self.enable_timing:
             timers['processing'] = time.perf_counter()
@@ -228,18 +237,25 @@ class HDF5Dataset(Dataset):
         print("╘══════════════════════════════════════════════╛\n")
 
     def _normalize_data(self, data_q, data_y):
+        """
+        Normalise data_q et data_y avec la formule (data - min) / (max - min)
+        si spécifié dans self.to_normalize.
+        """
+
+        def minmax_norm(x):
+            min_x, max_x = torch.min(x), torch.max(x)
+            return (x - min_x) / (max_x - min_x) if max_x > min_x else torch.zeros_like(x)
+
         if not isinstance(data_q, torch.Tensor):
             data_q = torch.tensor(data_q, dtype=torch.float32)
         if not isinstance(data_y, torch.Tensor):
             data_y = torch.tensor(data_y, dtype=torch.float32)
 
-        # Normalisation de data_q
-        min_q = torch.min(data_q)
-        max_q = torch.max(data_q)
-        if max_q > min_q:
-            data_q = (data_q - min_q) / (max_q - min_q)
-        else:
-            data_q = torch.zeros_like(data_q)
+        if "data_q" in self.to_normalize:
+            data_q = minmax_norm(data_q)
+
+        if "data_y" in self.to_normalize:
+            data_y = minmax_norm(data_y)
 
         return data_q, data_y
 
@@ -265,71 +281,3 @@ class HDF5Dataset(Dataset):
     def close(self):
         """Close the HDF5 file"""
         self.hdf.close()
-
-
-
-def load_data_from_file(file_path):
-    data_q, data_y = [], []
-    with open(file_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
-                continue
-            tokens = line.replace(';', ' ').replace(',', ' ').split()
-            try:
-                values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens]
-            except ValueError:
-                continue
-            if len(values) == 2:
-                values = [0.0 if (np.isnan(v) or np.isinf(v)) else v for v in values]
-                data_q.append(values[0])
-                data_y.append(values[1])
-    return np.array(data_q), np.array(data_y)
-
-if __name__ == "__main__":
-    hdf5_file = 'data.h5'
-    csv_file = '/projects/pnria/DATA/AUTOFILL/merged_cleaned_data.csv'
-    data_dir = '/projects/pnria/DATA/AUTOFILL/Base_de_donnee'
-    pad_size = 2000
-    conversion_dict_path = 'conversion_dict.json'
-    metadata_filters = {"technique": ["les"]}
-
-    if not os.path.exists(hdf5_file):
-        raise FileNotFoundError(f"HDF5 file not found: {hdf5_file}")
-
-    if not os.path.exists(csv_file):
-        raise FileNotFoundError(f"CSV file not found: {csv_file}")
-
-    if not os.path.exists(conversion_dict_path):
-        raise FileNotFoundError(f"Conversion dictionary file not found: {conversion_dict_path}")
-
-    df = pd.read_csv(csv_file)
-    dataset = HDF5Dataset(hdf5_file=hdf5_file, pad_size=pad_size, metadata_filters=metadata_filters, conversion_dict_path=conversion_dict_path)
-    indices_to_test = [0, 1, 2, 3, 4]
-
-    for idx in indices_to_test:
-        data_q_h5, data_y_h5, metadata, csv_file_index = dataset[idx]
-        file_path = os.path.join(data_dir, df.iloc[int(csv_file_index.item())]['path'])
-        normalized_path = os.path.normpath(file_path.replace('\\', os.sep).replace('/', os.sep))
-
-        if not os.path.exists(normalized_path):
-            print(f"Fichier introuvable : {normalized_path}")
-            continue
-
-        data_q_txt, data_y_txt = load_data_from_file(normalized_path)
-
-        match_q = np.allclose(data_q_h5.numpy()[:len(data_q_txt)], data_q_txt, atol=1e-6)
-        match_y = np.allclose(data_y_h5.numpy()[:len(data_y_txt)], data_y_txt, atol=1e-6)
-
-        print(f"Index {idx}:")
-        print(f"Index csv: {int(csv_file_index.item())}")
-        print(f"Path: {normalized_path}")
-        print(f"data_q_h5: {data_q_h5}")
-        print(f"data_q_txt: {data_q_txt}")
-        print(f"data_y_h5: {data_y_h5}")
-        print(f"data_y_txt: {data_y_txt}")
-        print(f"Match Q: {match_q}")
-        print(f"Match Y: {match_y}")
-        print("=" * 40)
-
-    dataset.close()
