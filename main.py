@@ -12,11 +12,13 @@ from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 
 import matplotlib.pyplot as plt
 import pytorch_lightning as pl
-from SVAE import CustomizableVAE
-from VAE_1D import VAE_1D
-from conv1DVAE_2_feature import Conv1DVAE_2_feature
-from conv1DVAE_concat import Conv1DVAE_concat
-from datasetH5 import HDF5Dataset
+from model.VAE.pl_VAE import PlVAE
+
+from dataset.datasetH5 import HDF5Dataset
+from model.VAE.submodel.VAE_1D import VAE_1D
+from model.VAE.submodel.SVAE import CustomizableVAE
+from model.VAE.submodel.conv1DVAE_concat import Conv1DVAE_concat
+from model.VAE.submodel.conv1DVAE_2_feature import Conv1DVAE_2_feature
 
 class InferencePlotCallback(pl.Callback):
     def __init__(self, dataloader, output_dir="inference_results"):
@@ -145,31 +147,30 @@ class TrainingManager:
                 down_rate=[2, 2, 2, 2],
                 up_rate=[2, 2, 2, 2],
                 cross_attention_dim=64,
-                learning_rate=self.args.learning_rate,
-                beta=self.args.beta
             )
+
         elif self.args.model == "vae1d":
             model = VAE_1D(
                 input_dim=self.args.pad_size,
-                learning_rate=self.args.learning_rate,
                 latent_dim=self.args.latent_dim,
-                beta=self.args.beta
             )
+
         elif self.args.model == "conv1d_2_feature":
             model = Conv1DVAE_2_feature(
                 self.args.pad_size,
                 self.args.latent_dim,
-                learning_rate=self.args.learning_rate
             )
+
         elif self.args.model == "conv1d_concat":
             model = Conv1DVAE_concat(
                 self.args.pad_size,
                 self.args.latent_dim,
-                learning_rate=self.args.learning_rate
             )
+
         else:
             raise ValueError("Modèle inconnu.")
-        return model
+        
+        return PlVAE(model, learning_rate=self.args.learning_rate, beta = self.args.beta)
 
     def create_loggers(self):
         """
@@ -197,7 +198,6 @@ class TrainingManager:
             mode='min'
         )
         return [checkpoint_callback, early_stopping, inference_plot_callback]
-
 
     def run(self):
         dataset = self.load_dataset()

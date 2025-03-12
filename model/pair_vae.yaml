@@ -1,0 +1,53 @@
+dataset :
+  hdf5_file: "path/to/file.h5"
+  pad_size: 0
+  technique: "some_technique"
+  material: "some_material"
+  conversion_dict_path: "path/to/conversion_dict.json"
+  sample_frac: 1.0
+  batch_size: 32
+  num_workers: 3
+
+training :
+  num_gpus : 1
+  num_nodes : 1
+  num_epochs : 10
+
+  lambda_param : 0.0001
+  weight_latent_similarity : 0.1
+  weight_kld_saxs : 0.0001
+  weight_kld_les : 0.0001
+  weight_saxs2saxs : 1
+  weight_saxs2les : 1
+  weight_les2les : 1
+  weight_les2saxs : 1
+
+  base_lr : 0.00001
+  max_lr : 0.0001
+  step_size_up : 100
+  step_size_down : 1000
+
+model :
+  VAE_SAXS :
+    path_checkpoint : 
+    model :
+      in_channels: 1
+      out_channels: 1
+      down_channels: [32, 64, 128]
+      up_channels: [128, 64, 32]
+      down_rate: [2, 2, 2]
+      up_rate: [2, 2, 2]
+      cross_attention_dim: 16
+      strat: "y"
+
+  VAE_LES :
+    path_checkpoint : 
+    model :
+      in_channels: 1
+      out_channels: 1
+      down_channels: [32, 64, 128]
+      up_channels: [128, 64, 32]
+      down_rate: [2, 2, 2]
+      up_rate: [2, 2, 2]
+      cross_attention_dim: 16
+      strat: "y"
