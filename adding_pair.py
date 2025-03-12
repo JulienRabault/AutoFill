@@ -1,76 +1,81 @@
 import pandas as pd
-import sys
-import hashlib
+import itertools
 from tqdm import tqdm
-import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import logging
+import argparse
+import shutil
+from multiprocessing import Pool
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# adding_pair.py --input all_data.csv --output all_data_pair.csv --common shape material --diff technique
+
+def process_group(pair_dict, pair_id, group, diff_column):
+    group_pairs = []
+    total_pairs = 0
+    indices = group.index.tolist()
+    logging.info("Processing group of %d rows", len(indices))
+    for i, j in itertools.combinations(indices, 2):
+        if group.at[i, diff_column] != group.at[j, diff_column]:
+            pair_dict[i].append(pair_id)
+            pair_dict[j].append(pair_id)
+            group_pairs.append(pair_id)
+            pair_id += 1
+            total_pairs += 1
+    return pair_dict, pair_id, total_pairs, group_pairs
 
 
-def process_group(group):
-    """Fonction exécutée en parallèle pour chaque groupe."""
-    group_id, c2_values = group
-    unique = len(c2_values) == len(set(zip(*c2_values)))
-    return group_id, group_id if unique else None
+def create_pairs_csv(input_file, output_file, common_columns, diff_column):
+    # Copier le fichier avant traitement
+    backup_file = f"{input_file}_backup.csv"
+    shutil.copy(input_file, backup_file)
+    logging.info("Backup created at %s", backup_file)
 
+    df = pd.read_csv(input_file)
 
-def main(csv_path, c1_columns, c2_columns):
-    # Chargement du CSV avec tqdm
-    print("Chargement du fichier CSV...")
-    with tqdm(desc="Progression", unit=" lignes") as pbar:
-        df = pd.read_csv(csv_path)
-        pbar.update(len(df))
+    missing_cols = [col for col in common_columns + [diff_column] if col not in df.columns]
+    if missing_cols:
+        logging.error("Missing columns in CSV: %s", missing_cols)
+        exit(1)
 
-    # Création des identifiants de groupe avec tqdm
-    print("Création des identifiants de groupe...")
-    tqdm.pandas(desc="Hashing des groupes")
-    df['group_id'] = df[c1_columns].astype(str).progress_apply(
-        lambda x: hashlib.sha256(x.sum().encode()).hexdigest(),
-        axis=1
-    )
+    logging.info("Grouping by columns: %s", common_columns)
+    pair_dict = {i: [] for i in df.index}
+    pair_id = 1
+    grouped = df.groupby(common_columns)
 
-    # Préparation des groupes pour le traitement parallèle
-    grouped = df.groupby('group_id')[c2_columns].apply(lambda x: list(map(tuple, x.values)))
-    groups = list(grouped.items())
+    total_pairs = 0
+    all_group_pairs = []
+    logging.info("")
+    logging.info("Starting processing ")
+    with Pool() as pool:
+        # Traiter les groupes en parallèle
+        results = list(tqdm(pool.starmap(process_group,
+                                         [(pair_dict, pair_id, group, diff_column) for _, group in grouped]),
+                            total=len(grouped), desc="Processing groups"))
 
-    # Traitement parallèle avec multi-CPU et tqdm
-    print("Traitement des groupes en parallèle...")
-    pair_index_map = {}
-    num_workers = mp.cpu_count()
+        for result in results:
+            pair_dict, pair_id, group_total_pairs, group_pairs = result
+            total_pairs += group_total_pairs
+            all_group_pairs.extend(group_pairs)
 
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(process_group, group): group[0] for group in groups}
+    df['pair_index'] = df.index.map(lambda i: ",".join(map(str, pair_dict[i])) if pair_dict[i] else "")
 
-        # Barre de progression pour le traitement parallèle
-        with tqdm(total=len(groups), desc="Traitement des groupes", unit=" groupe") as pbar:
-            for future in as_completed(futures):
-                group_id, index = future.result()
-                pair_index_map[group_id] = index
-                pbar.update(1)
-
-    # Application des résultats au DataFrame
-    print("Application des résultats...")
-    df['pair_index'] = df['group_id'].map(pair_index_map)
-
-    # Nettoyage des colonnes temporaires
-    df.drop('group_id', axis=1, inplace=True)
-
-    # Sauvegarde du fichier avec tqdm
-    print("Sauvegarde du fichier...")
-    with tqdm(desc="Sauvegarde", total=1) as pbar:
-        df.to_csv(csv_path, index=False)
-        pbar.update(1)
-
-    print("Traitement terminé avec succès !")
+    df.to_csv(output_file, index=False)
+    logging.info("CSV output saved to %s", output_file)
+    logging.info("Total unique pairs created: %d", total_pairs)
+    logging.info("Total rows processed: %d", len(df))
+    logging.info("Rows with at least one pair: %d", sum(df['pair_index'] != ""))
+    logging.info("Rows without a pair: %d", sum(df['pair_index'] == ""))
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python script.py <csv_path> <c1_columns> <c2_columns>")
-        print("Exemple: python script.py data.csv material,shape concentration,date")
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True, help="Input CSV file")
+    parser.add_argument("--output", required=True, help="Output CSV file")
+    parser.add_argument("--common", nargs="+", required=True, help="List of common metadata columns")
+    parser.add_argument("--diff", required=True, help="Column that must differ")
+    args = parser.parse_args()
 
-    csv_path = sys.argv[1]
-    c1 = sys.argv[2].split(',')
-    c2 = sys.argv[3].split(',')
-
-    main(csv_path, c1, c2)
+    logging.info("Starting processing")
+    create_pairs_csv(args.input, args.output, args.common, args.diff)
+    logging.info("Processing finished")
