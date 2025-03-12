@@ -11,7 +11,7 @@ import math
 
 class PairTextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date']):
+                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'], json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -24,24 +24,27 @@ class PairTextToHDF5Converter:
         self.hdf_files = None
         self.final_output_file = final_output_file
         self.exclude = exclude
+        self.json_output = json_output
 
     def _initialize_hdf_data(self):
         return [
-            np.zeros((self.hdf_cache, self.pad_size)),  # data_q
-            np.zeros((self.hdf_cache, self.pad_size)),  # data_y
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_q saxs
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_y saxs
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_q les
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_y les
             np.zeros((self.hdf_cache,)),  # original len
             np.zeros((self.hdf_cache,)),  # csv index
-            np.zeros((self.hdf_cache,)),  # pair index
             {col: np.zeros((self.hdf_cache,)) for col in self.metadata_cols}  # Métadonnées
         ]
 
     def _create_hdf(self, output_file):
         hdf = h5py.File(output_file, "w")
-        hdf.create_dataset("data_q", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
-        hdf.create_dataset("data_y", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_q_saxs", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_y_saxs", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_q_les", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_y_les", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
         hdf.create_dataset("len", (1,), maxshape=(None,))
         hdf.create_dataset("csv_index", (1,), maxshape=(None,))
-        hdf.create_dataset("pair_index", (1,), maxshape=(None,))
 
         # Création des datasets pour chaque métadonnée
         for col in self.metadata_cols:
@@ -51,20 +54,24 @@ class PairTextToHDF5Converter:
 
     def _flush_into_hdf5(self, current_index, current_size):
         """Sauvegarde les données en batch dans le fichier HDF5"""
-        self.hdf_files["data_q"].resize((current_index + current_size, self.pad_size))
-        self.hdf_files["data_q"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size, :]
-        self.hdf_files["data_y"].resize((current_index + current_size, self.pad_size))
-        self.hdf_files["data_y"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size, :]
+        self.hdf_files["data_q_saxs"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_q_saxs"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size, :]
+        self.hdf_files["data_y_saxs"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_y_saxs"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size, :]
+
+        self.hdf_files["data_q_les"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_q_les"][current_index:current_index + current_size, :] = self.hdf_data[2][:current_size, :]
+        self.hdf_files["data_y_les"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_y_les"][current_index:current_index + current_size, :] = self.hdf_data[3][:current_size, :]
+
         self.hdf_files["len"].resize((current_index + current_size,))
-        self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[2][:current_size]
+        self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[4][:current_size]
         self.hdf_files["csv_index"].resize((current_index + current_size,))
-        self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[3][:current_size]
-        self.hdf_files["pair_index"].resize((current_index + current_size,))
-        self.hdf_files["pair_index"][current_index:current_index + current_size] = self.hdf_data[4][:current_size]
+        self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[5][:current_size]
 
         for col in self.metadata_cols:
             self.hdf_files[col].resize((current_index + current_size,))
-            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[5][col][:current_size]
+            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[6][col][:current_size]
 
         self.hdf_files.flush()
 
@@ -80,7 +87,7 @@ class PairTextToHDF5Converter:
         data_y = []
         expected_num_columns = 2
 
-        with open(full_path, 'r', encoding="utf-8" ) as f:
+        with open(full_path, 'r', encoding="utf-8-sig" ) as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
@@ -149,24 +156,29 @@ class PairTextToHDF5Converter:
         with tqdm(total=len(self.dataframe), desc="Processing files") as pbar:
             for idx, row in self.dataframe.iterrows():
                 pbar.update(1)
-                file_path = os.path.join(self.data_dir, row['path'])
+                file_path_saxs = os.path.join(self.data_dir, row['saxs_path'])
+                file_path_les = os.path.join(self.data_dir, row['les_path'])
                 try:
-                    data_q, data_y = self._load_data_from_file(file_path)
-                    original_len = len(data_q)
-                    data_q, data_y = self._pad_data(data_q, data_y)
+                    data_q_saxs, data_y_saxs = self._load_data_from_file(file_path_saxs)
+                    data_q_les, data_y_les = self._load_data_from_file(file_path_les)
+                    original_len = len(data_q_saxs)
+                    data_q_saxs, data_y_saxs = self._pad_data(data_q_saxs, data_y_saxs)
+                    data_q_les, data_y_les = self._pad_data(data_q_les, data_y_les)
                 except Exception as e:
-                    data_q, data_y = np.zeros((self.pad_size,)), np.zeros((self.pad_size,))
+                    data_q_saxs, data_y_saxs = np.zeros((self.pad_size,)), np.zeros((self.pad_size,))
+                    data_q_les, data_y_les = np.zeros((self.pad_size,)), np.zeros((self.pad_size,))
                     original_len = 0
-                    warnings.warn(f"Erreur fichier {row['path']}: {e}")
+                    warnings.warn(f"Erreur fichier {row['saxs_path']} {row['les_path']}: {e}")
 
                 metadata = self._convert_metadata(row)
-                self.hdf_data[0][current_size] = data_q
-                self.hdf_data[1][current_size] = data_y
-                self.hdf_data[2][current_size] = original_len
-                self.hdf_data[3][current_size] = idx
-                self.hdf_data[4][current_size] = (row['pair_index'] if 'pair_index' in row else -1)
+                self.hdf_data[0][current_size] = data_q_saxs
+                self.hdf_data[1][current_size] = data_y_saxs
+                self.hdf_data[2][current_size] = data_q_les
+                self.hdf_data[3][current_size] = data_y_les
+                self.hdf_data[4][current_size] = original_len
+                self.hdf_data[5][current_size] = idx
                 for col in self.metadata_cols:
-                    self.hdf_data[5][col][current_size] = metadata[col]
+                    self.hdf_data[6][col][current_size] = metadata[col]
                 current_size += 1
 
                 if current_size == self.hdf_cache:
@@ -178,24 +190,9 @@ class PairTextToHDF5Converter:
             self._flush_into_hdf5(current_index, current_size)
         self.hdf_files.close()
 
-        with open("conversion_dict.json", "w") as f:
+        with open(self.json_output, "w") as f:
             json.dump(self.conversion_dict, f)
+        print(f"Conversion terminée, dictionnaire sauvegardé : {self.json_output}")
 
         print("Conversion terminée, dictionnaire sauvegardé.")
 
-
-if __name__ == "__main__":
-    data_csv_path = '/projects/pnria/DATA/AUTOFILL/merged_cleaned_data.csv'
-    if not os.path.exists(data_csv_path):
-        raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
-
-    dataframe = pd.read_csv(data_csv_path)
-    # dataframe_c = (dataframe[(dataframe['technique'] == 'les')])
-    # dataframe_c = dataframe_c[(dataframe['material'] == 'ag')].sample(frac=0.1)
-    data_dir = '/projects/pnria/DATA/AUTOFILL/Base_de_donnee'
-    final_output_file = 'data.h5'
-    print(dataframe.columns)
-    print(dataframe.head())
-    converter = PairTextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file)
-    converter.convert()
-    print(f"Data successfully converted to {final_output_file}")

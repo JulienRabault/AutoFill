@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 from collections import defaultdict
 from tqdm import tqdm
 
-class HDF5Dataset(Dataset):
+class PairHDF5Dataset(Dataset):
     def __init__(self, hdf5_file, pad_size=None, metadata_filters=None,
                  conversion_dict_path=None, frac=1, enable_timing=False,
                  requested_metadata=[], to_normalize=[]):

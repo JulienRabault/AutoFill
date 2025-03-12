@@ -63,7 +63,7 @@ class CSVAnalyzer:
 
 
 def main():
-    loader = CSVLoader("../../DATA/AUTOFILL/merged_cleaned_data.csv")
+    loader = CSVLoader("/projects/pnria/DATA/AUTOFILL/SAXS_100k_Curve_Au_Ag/SAXS_100k_Curve_Au_Ag.csv")
     data = loader.load()
 
     analyzer = CSVAnalyzer(data)
