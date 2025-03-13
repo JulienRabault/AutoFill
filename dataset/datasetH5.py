@@ -197,7 +197,7 @@ class HDF5Dataset(Dataset):
             self._update_timing_stats(timers, idx)
 
         # return data_q, data_y, metadata, self.csv_index[original_idx]
-        return {"data_q": data_q, "data_y": data_y, "metadata": metadata, "csv_index": self.csv_index[original_idx]}
+        return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), "metadata": metadata, "csv_index": self.csv_index[original_idx]}
 
     def _update_timing_stats(self, timers, idx):
         """Update timing statistics and display averages when complete"""

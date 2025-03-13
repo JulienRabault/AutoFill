@@ -1,20 +1,24 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-import pytorch_lightning as pl
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, CosineAnnealingLR
 
-from model.VAE.submodel.SVAE import CustomizableVAE
+import lightning.pytorch as pl
+
+from model.VAE.submodel.registry import *
 
 
 class PlVAE(pl.LightningModule):
-    def __init__(self, model, learning_rate=1e-3, beta=0.2):
+    def __init__(self, config):
         super(PlVAE, self).__init__()
-        self.save_hyperparameters()
-        self.learning_rate = learning_rate
-        self.beta = beta
 
-        self.model = model
+        self.config = config
+
+        self.beta = config["training"]["beta"]
+
+        model_class =  self.config["model"]["vae_class"]
+        print(self.config["model"]["args"])
+        self.model = MODEL_REGISTRY.get(model_class)(**self.config["model"]["args"])
 
     def compute_loss(self, x, recon, mu, logvar):
         recon_loss = F.mse_loss(recon, x, reduction='mean')
@@ -22,43 +26,39 @@ class PlVAE(pl.LightningModule):
         return recon_loss + self.beta * kl_div, recon_loss, kl_div
 
     def training_step(self, batch, batch_idx):
-        # q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.model.forward( batch)
+        y = batch["data_y"]
+        q = batch["data_q"]
+        metadata = batch["metadata"]
+        
+        x, recon, mu, logvar, z = self.model(y=y, q=q, metadata=metadata)
         loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log('recon_loss', recon_loss, on_step=True, on_epoch=True, prog_bar=False)
         self.log('kl_loss', kl_loss, on_step=True, on_epoch=True, prog_bar=False)
+        
         return loss
 
     def validation_step(self, batch, batch_idx):
-        # q, y, metadata = separate_batch_elements(batch)
-        x, recon, mu, logvar = self.model.forward(batch)
+        y = batch["data_y"]
+        q = batch["data_q"]
+        metadata = batch["metadata"]
+        
+        x, recon, mu, logvar, z = self.model(y=y, q=q, metadata=metadata)
         loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
+        
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config["training"]["max_lr"])
+              
+        scheduler = CosineAnnealingLR(
+          optimizer,
+          T_max=self.config["training"]["T_max"],
+          eta_min=self.config["training"]["eta_min"])
 
+        return {"optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "epoch"}}
 
-def separate_batch_elements(batch):
-    """
-    Sépare les éléments d'un batch en trois listes distinctes :q, y, et metadata.
-
-    Args:
-        batch (list): Liste de tuples contenant (Q, Y, metadata).
-
-    Returns:
-        torch.Tensor, torch.Tensor, torch.Tensor: Tenseursq, y et metadata séparés.
-    """
-    # print(len(batch))
-    # Q_list, Y_list, metadata_list, _ = zip(*batch)
-    #
-    # Q_tensor = torch.stack(Q_list, dim=0)
-    # Y_tensor = torch.stack(Y_list, dim=0)
-    # metadata_tensor = torch.stack(metadata_list, dim=0)
-    #
-    # return Q_tensor, Y_tensor, metadata_tensor
-
-    return batch

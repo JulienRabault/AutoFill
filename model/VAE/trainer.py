@@ -8,8 +8,8 @@ from torch.utils.data import DataLoader
 import lightning.pytorch as pl
 from lightning.pytorch import loggers as pl_loggers
 
-from model.pl_PairVAE import PlPairVAE 
-from dataset.datasetPairH5 import PairHDF5Dataset
+from model.VAE.pl_VAE import PlVAE 
+from dataset.datasetH5 import HDF5Dataset
 
 def train(config_path) : 
     with open(config_path, 'r') as file:
@@ -17,15 +17,15 @@ def train(config_path) :
 
     print("========================================")
     print("INIT Model")
-    model = PlPairVAE(config)
+    model = PlVAE(config)
     print("========================================")
     
     print("========================================")
     print("INIT Dataset")
-    dataset = PairHDF5Dataset(
+    dataset = HDF5Dataset(
         hdf5_file = config["dataset"]["hdf5_file"],
         pad_size = config["dataset"]["pad_size"],
-        metadata_filters = {"material": config["dataset"]["material"]},
+        metadata_filters = {"technique": config["dataset"]["technique"], "material": config["dataset"]["material"]},
         conversion_dict_path = config["dataset"]["conversion_dict_path"],
         frac = config["dataset"]["sample_frac"],
         to_normalize = config["dataset"]["to_normalize"],

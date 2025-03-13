@@ -26,12 +26,14 @@ class PairHDF5Dataset(Dataset):
         # Initialize timing statistics
         self.timing_stats = defaultdict(list)
         self.samples_processed = 0
-        self.data_q = self.hdf['data_q']
-        self.data_y = self.hdf['data_y']
+        self.data_q_saxs = self.hdf['data_q_saxs']
+        self.data_y_saxs = self.hdf['data_y_saxs']
+        self.data_q_les = self.hdf['data_q_les']
+        self.data_y_les = self.hdf['data_y_les']
         self.csv_index = self.hdf['csv_index']
 
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
-                             ['data_q', 'data_y', 'len', 'csv_index']]
+                             ['data_q_saxs', 'data_y_saxs', 'data_q_les', 'data_y_les','len', 'csv_index']]
         self.metadata_datasets = {col: self.hdf[col] for col in all_metadata_cols}
 
         self.requested_metadata = self._validate_requested_metadata(requested_metadata, all_metadata_cols)
@@ -60,7 +62,7 @@ class PairHDF5Dataset(Dataset):
         print("│ Dataset Initialization Info                 │")
         print("╞══════════════════════════════════════════════╡")
         print(f"│ File: {self.hdf5_file:<35} │")
-        print(f"│ Total samples: {len(self.data_q):<26} │")
+        print(f"│ Total samples: {len(self.data_q_saxs):<26} │")
         print(f"│ Samples filtered: {self.len_after_filter:<23} │")
         print(f"│ Requested fraction: {self.frac:<22} │")
         print(f"│ Fractioned samples: {len(self.filtered_indices):<22} │")
@@ -68,14 +70,25 @@ class PairHDF5Dataset(Dataset):
         print(f"│ To normalization: {str(self.to_normalize):<28} │")
 
         # Calcul des normes de data_y
-        data_y_tensor = torch.tensor(self.data_y[:])  # Conversion en tensor PyTorch
-        norm_l1 = torch.norm(data_y_tensor, p=1).item()
-        norm_l2 = torch.norm(data_y_tensor, p=2).item()
-        norm_max = torch.norm(data_y_tensor, p=float('inf')).item()
+        data_y_saxs_tensor = torch.tensor(self.data_y_saxs[:])  # Conversion en tensor PyTorch
+        norm_l1_saxs = torch.norm(data_y_saxs_tensor, p=1).item()
+        norm_l2_saxs = torch.norm(data_y_saxs_tensor, p=2).item()
+        norm_max_saxs = torch.norm(data_y_saxs_tensor, p=float('inf')).item()
 
-        print(f"│ Norme L1 de data_y: {norm_l1:<24.4f} │")
-        print(f"│ Norme L2 de data_y: {norm_l2:<24.4f} │")
-        print(f"│ Norme max de data_y: {norm_max:<22.4f} │")
+        print(f"│ Norme L1 de data_y_saxs: {norm_l1_saxs:<24.4f} │")
+        print(f"│ Norme L2 de data_y_saxs: {norm_l2_saxs:<24.4f} │")
+        print(f"│ Norme max de data_y_saxs: {norm_max_saxs:<22.4f} │")
+
+        print("╘══════════════════════════════════════════════╛\n")
+
+        data_y_les_tensor = torch.tensor(self.data_y_les[:])  # Conversion en tensor PyTorch
+        norm_l1_les = torch.norm(data_y_les_tensor, p=1).item()
+        norm_l2_les = torch.norm(data_y_les_tensor, p=2).item()
+        norm_max_les = torch.norm(data_y_les_tensor, p=float('inf')).item()
+
+        print(f"│ Norme L1 de data_y_les: {norm_l1_les:<24.4f} │")
+        print(f"│ Norme L2 de data_y_les: {norm_l2_les:<24.4f} │")
+        print(f"│ Norme max de data_y_les: {norm_max_les:<22.4f} │")
 
         print("╘══════════════════════════════════════════════╛\n")
 
@@ -107,9 +120,9 @@ class PairHDF5Dataset(Dataset):
     def _apply_metadata_filters(self):
         """Vectorized metadata filtering using numpy operations"""
         if not self.metadata_filters:
-            return list(range(len(self.data_q)))
+            return list(range(len(self.data_q_saxs)))
 
-        mask = np.ones(len(self.data_q), dtype=bool)
+        mask = np.ones(len(self.data_q_saxs), dtype=bool)
 
         for key, allowed_values in tqdm(self.metadata_filters.items(),
                                         desc="Applying filters"):
@@ -169,8 +182,10 @@ class PairHDF5Dataset(Dataset):
             timers['indexing'] = time.perf_counter()
 
         # Load main data
-        data_q = self.data_q[original_idx]
-        data_y = self.data_y[original_idx]
+        data_q_saxs = self.data_q_saxs[original_idx]
+        data_y_saxs = self.data_y_saxs[original_idx]
+        data_q_les = self.data_q_les[original_idx]
+        data_y_les = self.data_y_les[original_idx]
         if self.enable_timing:
             timers['data_load'] = time.perf_counter()
 
@@ -181,23 +196,29 @@ class PairHDF5Dataset(Dataset):
 
         # Data processing
         if self.to_normalize:
-            data_q, data_y = self._normalize_data(data_q, data_y)
+            data_q_saxs, data_y_saxs = self._normalize_data(data_q_saxs, data_y_saxs)
+            data_q_les, data_y_les = self._normalize_data(data_q_les, data_y_les)
         if self.enable_timing:
             timers['processing'] = time.perf_counter()
         if self.pad_size:
-            data_q, data_y = self._pad_data(data_q, data_y)
+            data_q_saxs, data_y_saxs = self._pad_data(data_q_saxs, data_y_saxs)
+            data_q_les, data_y_les = self._pad_data(data_q_les, data_y_les)
         if self.enable_timing:
             timers['end'] = time.perf_counter()
 
         # Convert to tensors if needed
-        data_q = torch.as_tensor(data_q, dtype=torch.float32)
-        data_y = torch.as_tensor(data_y, dtype=torch.float32)
-
+        data_q_saxs = torch.as_tensor(data_q_saxs, dtype=torch.float32)
+        data_y_saxs = torch.as_tensor(data_y_saxs, dtype=torch.float32)
+        data_q_les = torch.as_tensor(data_q_les, dtype=torch.float32)
+        data_y_les = torch.as_tensor(data_y_les, dtype=torch.float32)
+        
         if self.enable_timing:
             self._update_timing_stats(timers, idx)
 
         # return data_q, data_y, metadata, self.csv_index[original_idx]
-        return {"data_q": data_q, "data_y": data_y, "metadata": metadata, "csv_index": self.csv_index[original_idx]}
+        return {"data_q_saxs": data_q_saxs.unsqueeze(0), "data_y_saxs": data_y_saxs.unsqueeze(0), 
+                "data_q_les": data_q_les.unsqueeze(0), "data_y_les": data_y_les.unsqueeze(0),
+                "metadata": metadata, "csv_index": self.csv_index[original_idx]}
 
     def _update_timing_stats(self, timers, idx):
         """Update timing statistics and display averages when complete"""
@@ -251,12 +272,9 @@ class PairHDF5Dataset(Dataset):
         if not isinstance(data_y, torch.Tensor):
             data_y = torch.tensor(data_y, dtype=torch.float32)
 
-        if "data_q" in self.to_normalize:
-            data_q = minmax_norm(data_q)
-
-        if "data_y" in self.to_normalize:
-            data_y = minmax_norm(data_y)
-
+        data_q = minmax_norm(data_q)
+        data_y = minmax_norm(data_y)
+            
         return data_q, data_y
 
     def _pad_data(self, data_q, data_y):

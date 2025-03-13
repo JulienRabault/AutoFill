@@ -6,7 +6,6 @@ dataset :
   sample_frac: 1.0
   batch_size: 32
   num_workers: 3
-  to_normalize : ['data_y_saxs','data_y_les']
 
 training :
   num_gpus : 1
@@ -28,27 +27,29 @@ training :
 
 model :
   VAE_SAXS :
-    vae_class : CustomizableVAE
-    path_checkpoint :
-    path_config : 
+    vae_class :
+    path_checkpoint : /projects/pnria/julien/autofill/runs/saxs_ag_gpu1/version_0/checkpoints/vae-epoch=27-val_loss=0.00042.ckpt
+    path_config : /projects/pnria/julien/autofill/runs/saxs_ag_gpu1/version_1/hparams.yaml
     args :
       in_channels: 1
-      output_channels: 1
-      input_dim : 80
-      latent_dim : 64 
+      out_channels: 1
       down_channels: [32, 64, 128]
       up_channels: [128, 64, 32]
+      down_rate: [2, 2, 2]
+      up_rate: [2, 2, 2]
+      cross_attention_dim: 16
       strat: "y"
 
   VAE_LES :
-    vae_class : CustomizableVAE
-    path_checkpoint :
-    path_config :
+    vae_class :
+    path_checkpoint : /projects/pnria/julien/autofill/runs/les_ag_gpu1/version_0/checkpoints/vae-epoch=49-val_loss=0.00024.ckpt
+    path_config : /projects/pnria/julien/autofill/runs/les_ag_gpu1/version_1/hparams.yaml
     args :
       in_channels: 1
-      output_channels: 1
-      input_dim : 80
-      latent_dim : 64 
+      out_channels: 1
       down_channels: [32, 64, 128]
       up_channels: [128, 64, 32]
+      down_rate: [2, 2, 2]
+      up_rate: [2, 2, 2]
+      cross_attention_dim: 16
       strat: "y"

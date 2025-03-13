@@ -11,7 +11,7 @@ import math
 
 class PairTextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'], json_output='conversion_dict.json'):
+                 final_output_file='final_output.h5', exclude=['saxs_path', 'les_path', 'researcher', 'date'], json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -44,6 +44,7 @@ class PairTextToHDF5Converter:
         hdf.create_dataset("data_q_les", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
         hdf.create_dataset("data_y_les", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
         hdf.create_dataset("len", (1,), maxshape=(None,))
+        hdf.create_dataset("valid", (1,), maxshape=(None,))
         hdf.create_dataset("csv_index", (1,), maxshape=(None,))
 
         # Création des datasets pour chaque métadonnée
@@ -158,17 +159,18 @@ class PairTextToHDF5Converter:
                 pbar.update(1)
                 file_path_saxs = os.path.join(self.data_dir, row['saxs_path'])
                 file_path_les = os.path.join(self.data_dir, row['les_path'])
+                
                 try:
+                    
                     data_q_saxs, data_y_saxs = self._load_data_from_file(file_path_saxs)
                     data_q_les, data_y_les = self._load_data_from_file(file_path_les)
                     original_len = len(data_q_saxs)
                     data_q_saxs, data_y_saxs = self._pad_data(data_q_saxs, data_y_saxs)
                     data_q_les, data_y_les = self._pad_data(data_q_les, data_y_les)
+                    
                 except Exception as e:
-                    data_q_saxs, data_y_saxs = np.zeros((self.pad_size,)), np.zeros((self.pad_size,))
-                    data_q_les, data_y_les = np.zeros((self.pad_size,)), np.zeros((self.pad_size,))
-                    original_len = 0
                     warnings.warn(f"Erreur fichier {row['saxs_path']} {row['les_path']}: {e}")
+                    continue
 
                 metadata = self._convert_metadata(row)
                 self.hdf_data[0][current_size] = data_q_saxs
@@ -193,6 +195,8 @@ class PairTextToHDF5Converter:
         with open(self.json_output, "w") as f:
             json.dump(self.conversion_dict, f)
         print(f"Conversion terminée, dictionnaire sauvegardé : {self.json_output}")
+        
+        print(f"Nombre de fichiers valides {current_size} sur {len(self.dataframe)} fichiers au départ")
 
         print("Conversion terminée, dictionnaire sauvegardé.")
 
