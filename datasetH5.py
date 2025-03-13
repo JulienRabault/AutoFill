@@ -23,7 +23,6 @@ class HDF5Dataset(Dataset):
         self.enable_timing = enable_timing
         self.to_normalize = to_normalize
 
-        # Initialize timing statistics
         self.timing_stats = defaultdict(list)
         self.samples_processed = 0
         self.data_q = self.hdf['data_q']

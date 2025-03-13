@@ -42,7 +42,7 @@ class InferencePlotCallback(pl.Callback):
             data_y = batch["data_y"]
             inputs = data_y
 
-            _, reconstructions, _, _ = model(batch)
+            _, reconstructions, _, _ = model(data_y)
             fig, axs = plt.subplots(2, 2, figsize=(12, 8))
             axs = axs.ravel()
 
@@ -77,24 +77,24 @@ def parse_args():
     parser.add_argument("--material", type=str, default="ag",
                         help="Filtre pour la colonne 'material'")
     # Paramètres d'entraînement
-    parser.add_argument("--log_dir", type=str, default="runs",
+    parser.add_argument("--log_dir", type=str, default="runs_v2",
                         help="Répertoire de sortie pour les logs")
     parser.add_argument("--model", type=str, default="customizable",
                         choices=["customizable", "vae1d", "conv1d_2_feature", "conv1d_concat"],
                         help="Modèle à utiliser")
     parser.add_argument("--pad_size", type=int, default=80,
                         help="Taille de padding des séquences")
-    parser.add_argument("--latent_dim", type=int, default=64,
+    parser.add_argument("--latent_dim", type=int, default=32,
                         help="Dimension latente")
     parser.add_argument("--learning_rate", type=float, default=None,
                         help="Taux d'apprentissage. Par défaut: 5e-4 pour 'customizable', 1e-4 sinon")
-    parser.add_argument("--beta", type=float, default=0.0001,
+    parser.add_argument("--beta", type=float, default=0.000001,
                         help="Coefficient beta pour le VAE")
     parser.add_argument("--batch_size", type=int, default=128,
                         help="Taille du batch")
-    parser.add_argument("--max_epochs", type=int, default=50,
+    parser.add_argument("--max_epochs", type=int, default=100,
                         help="Nombre maximum d'époques")
-    parser.add_argument("--patience", type=int, default=5,
+    parser.add_argument("--patience", type=int, default=10,
                         help="Patience pour l'arrêt précoce")
     parser.add_argument("--num_workers", type=int, default=os.cpu_count(),
                         help="Nombre de workers pour le DataLoader")
@@ -128,7 +128,7 @@ class TrainingManager:
             metadata_filters={"technique": [self.args.technique], "material": [self.args.material]},
             conversion_dict_path=self.args.conversion_dict_path,
             frac=self.args.sample_frac,
-            to_normalize= ['data_y'] if self.args.technique == 'saxs' else []
+            to_normalize= ['data_y']
 
         )
         return dataset
@@ -140,12 +140,8 @@ class TrainingManager:
         if self.args.model == "customizable":
             model = CustomizableVAE(
                 in_channels=1,
-                out_channels=1,
-                down_channels=[32, 64, 128, 256],
-                up_channels=[256, 128, 64, 32],
-                down_rate=[2, 2, 2, 2],
-                up_rate=[2, 2, 2, 2],
-                cross_attention_dim=64,
+                input_dim= self.args.pad_size,
+                latent_dim=32,
                 learning_rate=self.args.learning_rate,
                 beta=self.args.beta
             )

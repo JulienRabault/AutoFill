@@ -12,4 +12,4 @@
 
 
 srun singularity exec /apps/containerCollections/CUDA12/pytorch2-NGC-24-02.sif \
-    /projects/pnria/julien/env/autofill_env/bin/python inference.py --checkpoint_path runs/les_ag_gpu1/version_0/checkpoints/vae-epoch=49-val_loss=0.00024.ckpt  --csv_log_dir runs/les_ag_gpu1/version_1
+    /projects/pnria/julien/env/autofill_env/bin/python inference.py --checkpoint_path /projects/pnria/julien/autofill/runs/saxs_au_gpu1/version_0/checkpoints/vae-epoch=25-val_loss=0.00047.ckpt  --csv_log_dir /projects/pnria/julien/autofill/runs/saxs_au_gpu1/version_1

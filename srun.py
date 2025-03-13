@@ -15,7 +15,7 @@ def submit_job(tech, mat, gpu):
         "--job-name", job_name,
         "--output", log_file,
         "--error", log_file,
-        "--partition", "RTX8000Nodes",
+        "--partition", "GPUNodes",
         "--nodes", "1",
         f"--gres=gpu:{gpu}",
         f"--ntasks-per-node={gpu}",

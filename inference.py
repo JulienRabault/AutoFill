@@ -206,7 +206,8 @@ def main(args):
         pad_size=args.pad_size,
         metadata_filters={"technique": [args.technique], "material": [args.material]},
         conversion_dict_path=args.conversion_dict_path,
-        frac=args.frac
+        frac=args.frac,
+        to_normalize=['data_y'] if args.technique == 'saxs' else []
     )
 
     test_loader = DataLoader(
@@ -228,12 +229,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Script pour l'inférence et la visualisation des résultats d'un modèle VAE.")
     parser.add_argument("--checkpoint_path", type=str, required=True, help="Chemin vers le fichier checkpoint du modèle.")
     parser.add_argument("--csv_log_dir", type=str, required=True, help="Répertoire contenant les fichiers de log CSV.")
-    parser.add_argument("--technique", type=str, default="les",
+    parser.add_argument("--technique", type=str, default="saxs",
                         help="Filtre pour la colonne 'technique'")
-    parser.add_argument("--material", type=str, default="ag",
+    parser.add_argument("--material", type=str, default="au",
                         help="Filtre pour la colonne 'material'")
-    parser.add_argument("--hdf5_file", type=str, default="data.h5", help="Chemin vers le fichier HDF5 contenant les données.")
-    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict.json", help="Chemin vers le fichier JSON de conversion.")
+    parser.add_argument("--hdf5_file", type=str, default="all_data.h5", help="Chemin vers le fichier HDF5 contenant les données.")
+    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict_all.json", help="Chemin vers le fichier JSON de conversion.")
     parser.add_argument("--pad_size", type=int, default=80, help="Taille de padding pour les données.")
     parser.add_argument("--frac", type=float, default=1, help="Fraction des données à utiliser.")
     parser.add_argument("--batch_size", type=int, default=16, help="Taille du batch pour le DataLoader.")
