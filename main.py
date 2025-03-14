@@ -5,20 +5,17 @@ import os
 import argparse
 import pandas as pd
 import torch
+import yaml
 from torch.utils.data import DataLoader
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
+from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.loggers import TensorBoardLogger, CSVLogger
 
 import matplotlib.pyplot as plt
 import pytorch_lightning as pl
 from model.VAE.pl_VAE import PlVAE
 
 from dataset.datasetH5 import HDF5Dataset
-from model.VAE.submodel.VAE_1D import VAE_1D
-from model.VAE.submodel.SVAE import CustomizableVAE
-from model.VAE.submodel.conv1DVAE_concat import Conv1DVAE_concat
-from model.VAE.submodel.conv1DVAE_2_feature import Conv1DVAE_2_feature
 
 class InferencePlotCallback(pl.Callback):
     def __init__(self, dataloader, output_dir="inference_results"):
@@ -68,40 +65,16 @@ def collate_batch(batch):
 def parse_args():
     parser = argparse.ArgumentParser(description="Entraînement d'un VAE customisable")
     # Chemins et filtres dataset
-    parser.add_argument("--name", type=str, default="customizable_vae",)
-    parser.add_argument("--devices", type=int,)
-    parser.add_argument("--hdf5_file", type=str, default="all_data.h5",
-                        help="Chemin vers le fichier HDF5 des données")
-    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict_all.json",
+    parser.add_argument("--config", type=str, default="model/VAE/vae_config.yaml",)
+    parser.add_argument("--name", type=str, default="customizable_vae", )
+    parser.add_argument("--conversion_dict_path", type=str, default="conversion_dict_saxs.json",
                         help="Chemin vers le dictionnaire de conversion des métadonnées")
-    parser.add_argument("--technique", type=str, default="les",
+    parser.add_argument("--technique", type=str, default="saxs",
                         help="Filtre pour la colonne 'technique'")
     parser.add_argument("--material", type=str, default="ag",
                         help="Filtre pour la colonne 'material'")
+    parser.add_argument("--devices")
     # Paramètres d'entraînement
-    parser.add_argument("--log_dir", type=str, default="runs",
-                        help="Répertoire de sortie pour les logs")
-    parser.add_argument("--model", type=str, default="customizable",
-                        choices=["customizable", "vae1d", "conv1d_2_feature", "conv1d_concat"],
-                        help="Modèle à utiliser")
-    parser.add_argument("--pad_size", type=int, default=80,
-                        help="Taille de padding des séquences")
-    parser.add_argument("--latent_dim", type=int, default=64,
-                        help="Dimension latente")
-    parser.add_argument("--learning_rate", type=float, default=None,
-                        help="Taux d'apprentissage. Par défaut: 5e-4 pour 'customizable', 1e-4 sinon")
-    parser.add_argument("--beta", type=float, default=0.0001,
-                        help="Coefficient beta pour le VAE")
-    parser.add_argument("--batch_size", type=int, default=128,
-                        help="Taille du batch")
-    parser.add_argument("--max_epochs", type=int, default=50,
-                        help="Nombre maximum d'époques")
-    parser.add_argument("--patience", type=int, default=5,
-                        help="Patience pour l'arrêt précoce")
-    parser.add_argument("--num_workers", type=int, default=os.cpu_count(),
-                        help="Nombre de workers pour le DataLoader")
-    parser.add_argument("--sample_frac", type=float, default=1,
-                        help="Fraction d'échantillonnage du dataset après filtrage")
     return parser.parse_args()
 
 
@@ -110,28 +83,20 @@ class TrainingManager:
     Classe pour gérer le processus d'entraînement.
     """
 
-    def __init__(self, args):
+    def __init__(self, config):
         """
         Initialisation du gestionnaire d'entraînement.
         """
-        self.args = args
-        # Définir le learning rate par défaut selon le modèle
-        if self.args.learning_rate is None:
-            if self.args.model == "customizable":
-                self.args.learning_rate = 5e-4
-            else:
-                self.args.learning_rate = 1e-4
-
+        self.config = config
 
     def load_dataset(self):
         dataset = HDF5Dataset(
-            hdf5_file=self.args.hdf5_file,
-            pad_size=self.args.pad_size,
-            metadata_filters={"technique": [self.args.technique], "material": [self.args.material]},
-            conversion_dict_path=self.args.conversion_dict_path,
-            frac=self.args.sample_frac,
-            to_normalize= ['data_y'] if self.args.technique == 'saxs' else []
-
+            hdf5_file=self.config['dataset']['hdf5_file'],
+            pad_size=self.config['dataset']['pad_size'],
+            metadata_filters={"technique": [self.config['dataset']['technique']], "material": [self.config['dataset']['material']]},
+            conversion_dict_path=self.config['dataset']['conversion_dict_path'],
+            frac=self.config['dataset']['sample_frac'],
+            to_normalize=['data_y']
         )
         return dataset
 
@@ -139,46 +104,19 @@ class TrainingManager:
         """
         Instancie le modèle selon le choix utilisateur.
         """
-        if self.args.model == "customizable":
-            model = CustomizableVAE(
-                in_channels=1,
-                out_channels=1,
-                down_channels=[32, 64, 128, 256],
-                up_channels=[256, 128, 64, 32],
-                down_rate=[2, 2, 2, 2],
-                up_rate=[2, 2, 2, 2],
-                cross_attention_dim=64,
-            )
-
-        elif self.args.model == "vae1d":
-            model = VAE_1D(
-                input_dim=self.args.pad_size,
-                latent_dim=self.args.latent_dim,
-            )
-
-        elif self.args.model == "conv1d_2_feature":
-            model = Conv1DVAE_2_feature(
-                self.args.pad_size,
-                self.args.latent_dim,
-            )
-
-        elif self.args.model == "conv1d_concat":
-            model = Conv1DVAE_concat(
-                self.args.pad_size,
-                self.args.latent_dim,
-            )
-
+        if self.config['model']['vae_class'] == "CustomizableVAE":
+            model = PlVAE(config=self.config['model'])
         else:
             raise ValueError("Modèle inconnu.")
-        
-        return PlVAE(model, learning_rate=self.args.learning_rate, beta = self.args.beta)
+
+        return model
 
     def create_loggers(self):
         """
         Configure les loggers TensorBoard et CSV.
         """
-        logger_tb = TensorBoardLogger(self.args.log_dir, name=self.args.name)
-        logger_csv = CSVLogger(self.args.log_dir, name=self.args.name)
+        logger_tb = TensorBoardLogger(self.config['log_dir'], name=self.config['name'])
+        logger_csv = CSVLogger(self.config['log_dir'], name=self.config['name'])
         return [logger_tb, logger_csv]
 
     def create_callbacks(self, val_loader):
@@ -187,14 +125,15 @@ class TrainingManager:
         """
         checkpoint_callback = ModelCheckpoint(
             monitor='val_loss',
-            filename='vae-{epoch:02d}-{val_loss:.5f}',
+            filename='best',
             save_top_k=1,
             mode='min',
         )
-        inference_plot_callback = InferencePlotCallback(val_loader, output_dir=os.path.join(self.args.log_dir, self.args.name))
+        inference_plot_callback = InferencePlotCallback(val_loader, output_dir=os.path.join(self.config['log_dir'],
+                                                                                            self.config['name']))
         early_stopping = EarlyStopping(
             monitor='val_loss',
-            patience=self.args.patience,
+            patience=self.config['patience'],
             verbose=True,
             mode='min'
         )
@@ -205,18 +144,27 @@ class TrainingManager:
         train_size = int(0.9 * len(dataset))
         val_size = len(dataset) - train_size
         train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-        train_loader = DataLoader(train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
-        val_loader = DataLoader(val_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers)
+        train_loader = DataLoader(train_dataset, batch_size=self.config['batch_size'], shuffle=True,
+                                  num_workers=os.cpu_count())
+        val_loader = DataLoader(val_dataset, batch_size=self.config['batch_size'], shuffle=False,
+                                num_workers=os.cpu_count())
         model = self.create_model()
         loggers = self.create_loggers()
         callbacks = self.create_callbacks(val_loader)
-        trainer = Trainer(max_epochs=self.args.max_epochs, logger=loggers, callbacks=callbacks, log_every_n_steps=10, accelerator="gpu", devices=self.args.devices)
+        trainer = Trainer(max_epochs=self.config['max_epochs'], logger=loggers, callbacks=callbacks,
+                          log_every_n_steps=10, accelerator="gpu", devices=self.config['devices'])
         trainer.fit(model, train_loader, val_loader)
 
 
 def main():
     args = parse_args()
-    trainer_manager = TrainingManager(args)
+    with open(args.config, 'r') as file:
+        config = yaml.safe_load(file)
+    config['name'] = args.name
+    config['dataset']['material'] = args.material
+    config['dataset']['technique'] = args.technique
+    config['devices'] = args.devices
+    trainer_manager = TrainingManager(config)
     trainer_manager.run()
 
 

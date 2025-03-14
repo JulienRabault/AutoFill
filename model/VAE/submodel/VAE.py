@@ -6,7 +6,7 @@ import torch.nn.functional as F
 class CustomizableVAE(nn.Module):
     def __init__(self, input_dim, latent_dim, in_channels=1,
                  down_channels=[32, 64, 128], up_channels=[128, 64, 32],
-                 output_channels=1, strat="y"):
+                 output_channels=1, strat="y",*args,  **kwargs):
         super(CustomizableVAE, self).__init__()
         
         if len(down_channels) != len(up_channels):

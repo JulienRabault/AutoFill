@@ -13,7 +13,7 @@ from tqdm import tqdm
 class PairHDF5Dataset(Dataset):
     def __init__(self, hdf5_file, pad_size=None, metadata_filters=None,
                  conversion_dict_path=None, frac=1, enable_timing=False,
-                 requested_metadata=[], to_normalize=[]):
+                 requested_metadata=[], to_normalize=[], **kwargs):
         """
         Optimized PyTorch Dataset for HDF5 files with selective metadata preprocessing
         """

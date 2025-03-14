@@ -14,11 +14,11 @@ class PlVAE(pl.LightningModule):
 
         self.config = config
 
-        self.beta = config["training"]["beta"]
+        self.beta = config["beta"]
 
-        model_class =  self.config["model"]["vae_class"]
-        print(self.config["model"]["args"])
-        self.model = MODEL_REGISTRY.get(model_class)(**self.config["model"]["args"])
+        model_class =  self.config["vae_class"]
+        print(self.config)
+        self.model = MODEL_REGISTRY.get(model_class)(**self.config)
 
     def compute_loss(self, x, recon, mu, logvar):
         recon_loss = F.mse_loss(recon, x, reduction='mean')

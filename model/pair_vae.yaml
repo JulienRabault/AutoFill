@@ -1,8 +1,8 @@
 dataset :
-  hdf5_file: "pair_saxs_les_closest_of_concentration.h5"
+  hdf5_file: "/projects/pnria/caroline/pair_saxs_les_closest_of_concentration.h5"
   pad_size: 80
   material: ["ag"]
-  conversion_dict_path: "conversion_dict_all.json"
+  conversion_dict_path: "/projects/pnria/caroline/conversion_dict_all.json"
   sample_frac: 1.0
   batch_size: 32
   num_workers: 3
@@ -15,8 +15,8 @@ training :
 
   lambda_param : 0.0001
   weight_latent_similarity : 0.1
-  weight_kld_saxs : 0.0001
-  weight_kld_les : 0.0001
+  weight_kld_saxs : 0.00001
+  weight_kld_les : 0.00001
   weight_saxs2saxs : 1
   weight_saxs2les : 1
   weight_les2les : 1
@@ -29,8 +29,8 @@ training :
 model :
   VAE_SAXS :
     vae_class : CustomizableVAE
-    path_checkpoint :
-    path_config : 
+    path_checkpoint : "/projects/pnria/julien/autofill/runs_v2/saxs_ag_gpu1/version_0/checkpoints/vae-epoch=62-val_loss=0.00001.ckpt"
+    path_config : "/projects/pnria/julien/autofill/runs_v2/saxs_ag_gpu1/version_0/hparams.yaml"
     args :
       in_channels: 1
       output_channels: 1
@@ -42,8 +42,8 @@ model :
 
   VAE_LES :
     vae_class : CustomizableVAE
-    path_checkpoint :
-    path_config :
+    path_checkpoint : "/projects/pnria/julien/autofill/runs_v2/les_ag_gpu1/version_0/checkpoints/vae-epoch=10-val_loss=0.00006.ckpt"
+    path_config : "/projects/pnria/julien/autofill/runs_v2/les_ag_gpu1/version_0/hparams.yaml"
     args :
       in_channels: 1
       output_channels: 1

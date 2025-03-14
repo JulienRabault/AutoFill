@@ -45,7 +45,6 @@ def train(config_path) :
                         max_epochs=config["training"]["num_epochs"],
                         gradient_clip_val=200,
                         gradient_clip_algorithm="norm",
-                        profiler="advanced",
                         log_every_n_steps=10
                         )
     

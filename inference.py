@@ -73,15 +73,12 @@ def load_model(checkpoint_path, input_dim, latent_dim, learning_rate):
     """
     model = CustomizableVAE(
         in_channels=1,
-        out_channels=1,
-        down_channels=[32, 64, 128, 256],
-        up_channels=[256, 128, 64, 32],
-        down_rate=[2, 2, 2, 2],
-        up_rate=[2, 2, 2, 2],
-        cross_attention_dim=64,
-        learning_rate=learning_rate,
-        beta=0.00001
+        input_dim=self.args.pad_size,
+        latent_dim=32,
+        learning_rate=self.args.learning_rate,
+        beta=self.args.beta
     )
+
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     model.load_state_dict(checkpoint['state_dict'])
     model.eval()
