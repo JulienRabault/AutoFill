@@ -1,12 +1,14 @@
 import os
 import shutil
 import yaml
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
 
 import lightning.pytorch as pl
 from lightning.pytorch import loggers as pl_loggers
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from model.pl_PairVAE import PlPairVAE 
 from dataset.datasetPairH5 import PairHDF5Dataset
@@ -35,6 +37,7 @@ def train(config_path) :
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+
     train_loader = DataLoader(train_dataset, batch_size=config["dataset"]["batch_size"], shuffle=True, num_workers=config["dataset"]["num_workers"])
     val_loader = DataLoader(val_dataset, batch_size=config["dataset"]["batch_size"], shuffle=False, num_workers=config["dataset"]["num_workers"])
         
@@ -45,7 +48,8 @@ def train(config_path) :
                         max_epochs=config["training"]["num_epochs"],
                         gradient_clip_val=200,
                         gradient_clip_algorithm="norm",
-                        log_every_n_steps=10
+                        log_every_n_steps=10,
+                        callbacks = ModelCheckpoint(monitor = "val_loss", save_top_k=1, mode = "min")
                         )
     
     if not os.path.exists(trainer.log_dir):
@@ -53,5 +57,15 @@ def train(config_path) :
         print(trainer.log_dir)
         
     shutil.copy(config_path, f"{trainer.log_dir}/config_model.yaml")
+
+    # Extraction des indices
+    train_indices = train_dataset.indices
+    val_indices = val_dataset.indices
     
+    # Sauvegarde des indices
+    np.save(f"{trainer.log_dir}/train_indices.npy", train_indices)
+    np.save(f"{trainer.log_dir}/val_indices.npy", val_indices)
+    
+    print("Indices sauvegardés !")
+  
     trainer.fit(model, train_dataloaders = train_loader, val_dataloaders = val_loader)    

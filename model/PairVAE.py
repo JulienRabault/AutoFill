@@ -77,6 +77,7 @@ class PairVAE(nn.Module):
         recon_saxs2les = self.vae_saxs.decode(z_les)
         # LES→SAXS
         recon_les2saxs = self.vae_les.decode(z_saxs)
+        #recon_les2saxs = self.vae_saxs.decode(z_les)
 
         return {
             "recon_saxs": recon_saxs,

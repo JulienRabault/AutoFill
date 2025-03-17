@@ -31,6 +31,8 @@ class PlPairVAE(pl.LightningModule):
         self.weight_les2les = self.config["training"]["weight_les2les"]
         self.weight_les2saxs = self.config["training"]["weight_les2saxs"]
 
+    def forward(self, batch):
+        return self.model(batch)
 
     def compute_loss(self, batch, outputs):
         """
@@ -46,8 +48,6 @@ class PlPairVAE(pl.LightningModule):
         loss_les2sax = F.mse_loss(outputs["recon_les2saxs"], batch["data_y_saxs"])  
 
         loss_latent = self.barlow_twins_loss(outputs["z_saxs"], outputs["z_les"])
-
-        # Kld loss ?
 
         loss_total = (self.weight_latent_similarity * loss_latent +
                       self.weight_saxs2saxs * loss_saxs2saxs +
@@ -66,7 +66,7 @@ class PlPairVAE(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
 
-        outputs = self.model.forward(batch)
+        outputs = self(batch)
 
         loss_total, details = self.compute_loss(batch, outputs)
 
@@ -80,7 +80,7 @@ class PlPairVAE(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
 
-        outputs = self.model.forward(batch)
+        outputs = self(batch)
 
         loss_total, details = self.compute_loss(batch, outputs)
 
