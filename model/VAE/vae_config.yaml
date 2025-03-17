@@ -9,6 +9,7 @@ T_max : 10
 eta_min : 0.00001
 max_epochs: 100
 batch_size: 128
+patience: 10
 
 dataset :
   hdf5_file: "/projects/pnria/julien/autofill/all_data.h5"
@@ -32,4 +33,7 @@ model :
   strat: "y"
   beta: 0.00001
   learning_rate: 0.0001
+  max_lr : 0.0001
+  T_max : 10
+  eta_min : 0.00001
 

@@ -137,7 +137,7 @@ class TrainingManager:
             verbose=True,
             mode='min'
         )
-        return [checkpoint_callback, early_stopping, inference_plot_callback]
+        return [checkpoint_callback, early_stopping]
 
     def run(self):
         dataset = self.load_dataset()

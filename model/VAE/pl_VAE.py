@@ -50,12 +50,12 @@ class PlVAE(pl.LightningModule):
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config["training"]["max_lr"])
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config["max_lr"])
               
         scheduler = CosineAnnealingLR(
           optimizer,
-          T_max=self.config["training"]["T_max"],
-          eta_min=self.config["training"]["eta_min"])
+          T_max=self.config["T_max"],
+          eta_min=self.config["eta_min"])
 
         return {"optimizer": optimizer,
                 "lr_scheduler": {
