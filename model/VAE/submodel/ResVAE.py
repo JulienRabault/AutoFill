@@ -1,12 +1,51 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, dilation=1):
+        super().__init__()
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=2, padding=1, dilation=dilation)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
+
+        # If input and output channels differ, use 1x1 convolution to match dimensions
+        self.skip_connection = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=2) if in_channels != out_channels else nn.Identity()
+
+    def forward(self, x):
+        identity = self.skip_connection(x)
+        out = self.conv1(x)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out += identity  # Residual connection
+        out = self.relu(out)
+        return out
+
+
+class ResidualUpBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.deconv1 = nn.ConvTranspose1d(in_channels, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.relu = nn.ReLU()
+        self.deconv2 = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
+
+        # If input and output channels differ, match dimensions
+        self.skip_connection = nn.ConvTranspose1d(in_channels, out_channels, kernel_size=1, stride=2, output_padding=1) if in_channels != out_channels else nn.Identity()
+
+    def forward(self, x):
+        identity = self.skip_connection(x)
+        out = self.deconv1(x)
+        out = self.relu(out)
+        out = self.deconv2(out)
+        out += identity  # Residual connection
+        out = self.relu(out)
+        return out
         
-class VAE(nn.Module):
+class ResVAE(nn.Module):
     def __init__(self, input_dim, latent_dim, in_channels=1,
                  down_channels=[32, 64, 128], up_channels=[128, 64, 32], dilation=1,
                  output_channels=1, strat="y", *args,  **kwargs):
-        super(VAE, self).__init__()
+        super(ResVAE, self).__init__()
 
         if len(down_channels) != len(up_channels):
             raise ValueError("down_channels et up_channels doivent avoir la même taille.")
@@ -24,14 +63,9 @@ class VAE(nn.Module):
         encoder_layers = []
         current_in = in_channels
         for out_ch in down_channels:
-            encoder_layers.append(nn.Conv1d(current_in, out_ch, kernel_size=3, stride=2, padding=1, dilation=dilation))
-            #encoder_layers.append(nn.BatchNorm1d(out_ch))
-            encoder_layers.append(nn.ReLU())
-            encoder_layers.append(nn.Conv1d(out_ch, out_ch, kernel_size=3, padding=1))  
-            encoder_layers.append(nn.ReLU())
-            #encoder_layers.append(nn.MaxPool1d(kernel_size=2))
+            encoder_layers.append(ResidualBlock(current_in, out_ch, dilation))
             current_in = out_ch
-            input_dim = input_dim // 2
+            input_dim = input_dim // 2  # Since stride=2
         encoder_layers.append(nn.Flatten())
         flattened_size = down_channels[-1] * input_dim
         encoder_layers.append(nn.Linear(flattened_size, flattened_size // 2))
@@ -44,11 +78,7 @@ class VAE(nn.Module):
         decoder_layers = []
         current_in = up_channels[0]
         for out_ch in up_channels[1:]:
-            decoder_layers.append(nn.ConvTranspose1d(current_in, out_ch, kernel_size=3, stride=2, padding=1, output_padding=1))
-            #decoder_layers.append(nn.BatchNorm1d(out_ch))
-            decoder_layers.append(nn.ReLU())
-            decoder_layers.append(nn.Conv1d(out_ch, out_ch, kernel_size=3, padding=1))  # Convolution supplémentaire
-            decoder_layers.append(nn.ReLU())
+            decoder_layers.append(ResidualUpBlock(current_in, out_ch))
             current_in = out_ch
         decoder_layers.append(nn.ConvTranspose1d(current_in, output_channels, kernel_size=3, stride=2, padding=1, output_padding=1))
         decoder_layers.append(nn.Sigmoid())
@@ -91,11 +121,8 @@ class VAE(nn.Module):
 
     def decode(self, z):
         """ Décodeur VAE """
-        assert not torch.isnan(z).any(), "NaN detected in input latent variable z"
-
         for i, layer in enumerate(self.decoder):
             z = layer(z)
-            assert not torch.isnan(z).any(), f"NaN detected after layer {i}"
         return z
 
     def forward(self, y, q=None, metadata=None):
@@ -104,16 +131,8 @@ class VAE(nn.Module):
         else:
             raise ValueError("strat must be 'q' or 'y'")
 
-        assert not torch.isnan(x).any(), "NaN detected in input data"
-
         mu, logvar = self.encode(x)
-        assert not torch.isnan(mu).any(), "NaN detected in mu"
-        assert not torch.isnan(logvar).any(), "NaN detected in logvar"
-
         z = self.reparameterize(mu, logvar)
-        assert not torch.isnan(z).any(), "NaN detected in latent variable z"
-
         recon = self.decode(z)
-        assert not torch.isnan(recon).any(), "NaN detected in reconstructed output"
 
         return x, recon, mu, logvar, z

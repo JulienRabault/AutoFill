@@ -1,54 +1,61 @@
 dataset :
-  hdf5_file: "pair_saxs_les_closest_of_concentration.h5"
-  pad_size: 80
-  material: ["ag"]
-  conversion_dict_path: "conversion_dict_all.json"
+  hdf5_file: "data/pair_saxs_les_closest_of_concentration.h5"
+  metadata_filters :
+    material: ["ag"]
+  requested_metadata : ["shape", "material"]
+  conversion_dict_path: "data/conversion_dict_all.json"
   sample_frac: 1.0
-  batch_size: 32
-  num_workers: 3
-  to_normalize : ['data_y_saxs','data_y_les']
-
+  transform : 
+    y_saxs :
+      LogTransformer: {}
+      MinMaxNormalizer: {}
+      PaddingTransformer:
+        pad_size : 80
+        value : 0
+    y_les :
+      MinMaxNormalizer: {}
+      PaddingTransformer:
+        pad_size: 80
+        value : 0
+    q_les :
+      PaddingTransformer:
+        pad_size : 80
+        value: 0   
+    q_saxs :
+      PaddingTransformer:
+        pad_size: 80
+        value: 0
+          
 training :
   num_gpus : 1
   num_nodes : 1
   num_epochs : 50
+  patience : 10
+  
+  batch_size: 32
+  num_workers: 3
 
   lambda_param : 0.0001
-  weight_latent_similarity : 0.1
-  weight_kld_saxs : 0.0001
-  weight_kld_les : 0.0001
-  weight_saxs2saxs : 1
+  weight_latent_similarity : 0.005
+  weight_saxs2saxs : 0.1
   weight_saxs2les : 1
-  weight_les2les : 1
+  weight_les2les : 0.1
   weight_les2saxs : 1
 
   max_lr : 0.0001
-  T_max : 10
+  T_max : 25
   eta_min : 0.00001
 
 model :
   VAE_SAXS :
     vae_class : CustomizableVAE
-    path_checkpoint : 
-    path_config : 
+    path_checkpoint : lightning_logs/version_79219/checkpoints/epoch=60-step=159576.ckpt
+    path_config : lightning_logs/version_79219/config_model.yaml
     args :
-      in_channels: 1
-      output_channels: 1
-      input_dim : 80
-      latent_dim : 64 
-      down_channels: [32, 64, 128]
-      up_channels: [128, 64, 32]
-      strat: "y"
+
 
   VAE_LES :
     vae_class : CustomizableVAE
-    path_checkpoint : 
-    path_config : 
+    path_checkpoint : lightning_logs/version_79221/checkpoints/epoch=177-step=2872208.ckpt
+    path_config : lightning_logs/version_79221/config_model.yaml
     args :
-      in_channels: 1
-      output_channels: 1
-      input_dim : 80
-      latent_dim : 64 
-      down_channels: [32, 64, 128]
-      up_channels: [128, 64, 32]
-      strat: "y"

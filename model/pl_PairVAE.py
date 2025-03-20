@@ -23,8 +23,6 @@ class PlPairVAE(pl.LightningModule):
         self.barlow_twins_loss = BarlowTwinsLoss(self.config["training"]["lambda_param"])
 
         self.weight_latent_similarity = self.config["training"]["weight_latent_similarity"]
-        self.weight_kld_saxs = self.config["training"]["weight_kld_saxs"]
-        self.weight_kld_les= self.config["training"]["weight_kld_les"]
         
         self.weight_saxs2saxs = self.config["training"]["weight_saxs2saxs"]
         self.weight_saxs2les = self.config["training"]["weight_saxs2les"]
@@ -45,7 +43,7 @@ class PlPairVAE(pl.LightningModule):
         loss_saxs2saxs = F.mse_loss(outputs["recon_saxs"], batch["data_y_saxs"])
         loss_les2les = F.mse_loss(outputs["recon_les"], batch["data_y_les"]) 
         loss_saxs2les = F.mse_loss(outputs["recon_saxs2les"], batch["data_y_les"])  
-        loss_les2sax = F.mse_loss(outputs["recon_les2saxs"], batch["data_y_saxs"])  
+        loss_les2saxs = F.mse_loss(outputs["recon_les2saxs"], batch["data_y_saxs"])  
 
         loss_latent = self.barlow_twins_loss(outputs["z_saxs"], outputs["z_les"])
 
@@ -53,14 +51,14 @@ class PlPairVAE(pl.LightningModule):
                       self.weight_saxs2saxs * loss_saxs2saxs +
                       self.weight_les2les* loss_les2les +
                       self.weight_saxs2les * loss_saxs2les +
-                      self.weight_les2saxs * loss_les2sax)
+                      self.weight_les2saxs * loss_les2saxs)
 
         details = {
             "loss_latent": loss_latent.item(),
             "loss_saxs2saxs": loss_saxs2saxs.item(),
             "loss_les2les": loss_les2les.item(),
             "loss_saxs2les": loss_saxs2les.item(),
-            "loss_les2sax": loss_les2sax.item()
+            "loss_les2saxs": loss_les2saxs.item()
         }
         return loss_total, details
 
@@ -74,7 +72,7 @@ class PlPairVAE(pl.LightningModule):
         self.log('train_loss_saxs2saxs', details["loss_saxs2saxs"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('train_loss_les2les', details["loss_les2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('train_loss_saxs2les', details["loss_saxs2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
-        self.log('train_loss_les2sax', details["loss_les2sax"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
+        self.log('train_loss_les2saxs', details["loss_les2saxs"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         
         return loss_total
 
@@ -89,7 +87,7 @@ class PlPairVAE(pl.LightningModule):
         self.log('val_loss_saxs2saxs', details["loss_saxs2saxs"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('val_loss_les2les', details["loss_les2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('val_loss_saxs2les', details["loss_saxs2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
-        self.log('val_loss_les2sax', details["loss_les2sax"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
+        self.log('val_loss_les2saxs', details["loss_les2saxs"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config["training"]["max_lr"])
