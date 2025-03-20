@@ -1,9 +1,10 @@
 # Installation
 
-$python3 -m virtualenv venv
-$source venv/bin/activate
-$pip install -r requirements.txt
-
+```bash
+$ python3 -m virtualenv venv
+$ source venv/bin/activate
+$ pip install -r requirements.txt
+```
 # Construction of dataset
 
 ## For Single VAE
@@ -82,12 +83,14 @@ model:
 ### Launching
 
 - If you have OCCIDATA, you can : 
-$python3 srun.py --mode vae --config "model/VAE/vae_config_les.yaml" --mat ag --tech les
-$python3 srun.py --mode vae --config "model/VAE/vae_config_saxs.yaml" --mat ag --tech saxs
-
+```bash
+$ python3 srun.py --mode vae --config "model/VAE/vae_config_les.yaml" --mat ag --tech les
+$ python3 srun.py --mode vae --config "model/VAE/vae_config_saxs.yaml" --mat ag --tech saxs
+```
 - if you don't :
-$train.py --name training_vae --mode vae --config {config} --technique {tech} --material {mat} --devices {gpu}
-
+```bash
+$ train.py --name training_vae --mode vae --config {config} --technique {tech} --material {mat} --devices {gpu}
+```
 where config if the path to the yaml config, technique is saxs or les ...
 
 - you can also simply use the train function in model/VAE/trainer.py with the correct config.
@@ -106,7 +109,9 @@ where config if the path to the yaml config, technique is saxs or les ...
 Each trained model will create a subfolder in lightning_logs.
 Inside, the model configuration, weights, and the metrics board are stored.
 You can display the latter with:
+```bash
 $tensorboard --logdir lightning_logs
+```
 
 ## Loading model and testing
 
