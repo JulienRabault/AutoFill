@@ -13,12 +13,13 @@ class PlPairVAE(pl.LightningModule):
     Classe PairVAE pour l'entraînement par paire avec reconstruction croisée
     et alignement des espaces latents.
     """
-    def __init__(self, config):
+    def __init__(self, config, load_weights_VAE=True):
         super(PlPairVAE, self).__init__()
 
         self.config = config
-        
-        self.model = PairVAE(self.config["model"])
+
+        self.model = PairVAE(self.config["model"], load_weights_VAE)
+        self.output_saxs_transform_log = self.config["model"]["output_saxs_transform_log"]
 
         self.barlow_twins_loss = BarlowTwinsLoss(self.config["training"]["lambda_param"])
 
@@ -40,10 +41,19 @@ class PlPairVAE(pl.LightningModule):
         Renvoie:
             tuple: (loss_total, details) où details est un dictionnaire des pertes individuelles.
         """
-        loss_saxs2saxs = F.mse_loss(outputs["recon_saxs"], batch["data_y_saxs"])
+        if self.output_saxs_transform_log :
+            y_saxs = torch.log(batch["data_y_saxs"] + 1e-9)
+            recon_saxs = torch.log(outputs["recon_saxs"] + 1e-9)
+            recon_les2saxs = torch.log(outputs["recon_les2saxs"] + 1e-9)
+        else :
+            y_saxs = batch["data_y_saxs"]
+            recon_saxs = outputs["recon_saxs"]
+            recon_les2saxs = outputs["recon_les2saxs"]
+            
+        loss_saxs2saxs = F.mse_loss(recon_saxs, y_saxs)
         loss_les2les = F.mse_loss(outputs["recon_les"], batch["data_y_les"]) 
         loss_saxs2les = F.mse_loss(outputs["recon_saxs2les"], batch["data_y_les"])  
-        loss_les2saxs = F.mse_loss(outputs["recon_les2saxs"], batch["data_y_saxs"])  
+        loss_les2saxs = F.mse_loss(recon_les2saxs, y_saxs)  
 
         loss_latent = self.barlow_twins_loss(outputs["z_saxs"], outputs["z_les"])
 

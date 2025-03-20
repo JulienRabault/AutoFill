@@ -11,7 +11,7 @@ class PairVAE(nn.Module):
     Classe PairVAE pour l'entraînement par paire avec reconstruction croisée
     et alignement des espaces latents.
     """
-    def __init__(self, config):
+    def __init__(self, config, load_weights_VAE):
         super(PairVAE, self).__init__()
 
         self.config = config
@@ -26,7 +26,8 @@ class PairVAE(nn.Module):
         print(config_saxs)
         vae_saxs_class =  self.config["VAE_SAXS"]["vae_class"]
         self.vae_saxs = MODEL_REGISTRY.get(vae_saxs_class)(**config_saxs)
-        if self.config["VAE_SAXS"]["path_checkpoint"] is not None :
+        if self.config["VAE_SAXS"]["path_checkpoint"] is not None and load_weights_VAE:
+            print("LOADING CKPT SAXS")
             checkpoint = torch.load(self.config["VAE_SAXS"]["path_checkpoint"], map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             checkpoint['state_dict'] = {k[len("model."):]: v for k, v in checkpoint['state_dict'].items()}
             self.vae_saxs.load_state_dict(checkpoint['state_dict'])
@@ -43,7 +44,8 @@ class PairVAE(nn.Module):
         print(config_les)
         vae_les_class =  self.config["VAE_LES"]["vae_class"]
         self.vae_les = MODEL_REGISTRY.get(vae_les_class)(**config_les)
-        if self.config["VAE_LES"]["path_checkpoint"] is not None :
+        if self.config["VAE_LES"]["path_checkpoint"] is not None and load_weights_VAE:
+            print("LOADING CKPT LES")
             checkpoint = torch.load(self.config["VAE_LES"]["path_checkpoint"], map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             checkpoint['state_dict'] = {k[len("model."):]: v for k, v in checkpoint['state_dict'].items()}
             self.vae_les.load_state_dict(checkpoint['state_dict'])

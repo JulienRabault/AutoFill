@@ -10,16 +10,15 @@ import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger, CSVLogger
 
-from model.pl_PairVAE import PlPairVAE
+from model.pl_PairVAE import PlPairVAE 
 from dataset.datasetPairH5 import PairHDF5Dataset
-from lightning.pytorch.callbacks import ModelCheckpoint
 
 def train(config) : 
     print("========================================")
     print("INIT Model")
     model = PlPairVAE(config)
     print("========================================")
-
+    
     print("========================================")
     print("INIT Dataset")
 
@@ -30,10 +29,9 @@ def train(config) :
         sample_frac = config["dataset"]["sample_frac"],
         transform =  config["dataset"]["transform"],
         requested_metadata =  config["dataset"]["requested_metadata"],
-
     )
     print("========================================")
-
+    
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])

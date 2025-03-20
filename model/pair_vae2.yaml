@@ -7,7 +7,6 @@ dataset :
   sample_frac: 1.0
   transform : 
     y_saxs :
-      LogTransformer: {}
       MinMaxNormalizer: {}
       PaddingTransformer:
         pad_size : 80
@@ -29,17 +28,17 @@ dataset :
 training :
   num_gpus : 1
   num_nodes : 1
-  num_epochs : 50
+  num_epochs : 200
   patience : 10
   
-  batch_size: 32
+  batch_size: 16
   num_workers: 3
 
   lambda_param : 0.0001
   weight_latent_similarity : 0.005
-  weight_saxs2saxs : 0.1
+  weight_saxs2saxs : 0.04
   weight_saxs2les : 1
-  weight_les2les : 0.1
+  weight_les2les : 0.04
   weight_les2saxs : 1
 
   max_lr : 0.0001
@@ -47,15 +46,16 @@ training :
   eta_min : 0.00001
 
 model :
+  output_saxs_transform_log : True
   VAE_SAXS :
-    vae_class : CustomizableVAE
-    path_checkpoint : lightning_logs/version_79219/checkpoints/epoch=60-step=159576.ckpt
-    path_config : lightning_logs/version_79219/config_model.yaml
+    vae_class : ResVAE
+    path_checkpoint : lightning_logs/version_79577/checkpoints/epoch=126-step=332232.ckpt
+    path_config : lightning_logs/version_79577/config_model.yaml
     args :
 
 
   VAE_LES :
-    vae_class : CustomizableVAE
-    path_checkpoint : lightning_logs/version_79221/checkpoints/epoch=177-step=2872208.ckpt
-    path_config : lightning_logs/version_79221/config_model.yaml
+    vae_class : ResVAE
+    path_checkpoint : lightning_logs/version_79610/checkpoints/epoch=19-step=645420.ckpt
+    path_config : lightning_logs/version_79610/config_model.yaml
     args :
