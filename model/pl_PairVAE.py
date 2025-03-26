@@ -57,12 +57,6 @@ class PlPairVAE(pl.LightningModule):
 
         loss_latent = self.barlow_twins_loss(outputs["z_saxs"], outputs["z_les"])
 
-        loss_total = (self.weight_latent_similarity * loss_latent +
-                      self.weight_saxs2saxs * loss_saxs2saxs +
-                      self.weight_les2les* loss_les2les +
-                      self.weight_saxs2les * loss_saxs2les +
-                      self.weight_les2saxs * loss_les2saxs)
-
         details = {
             "loss_latent": loss_latent.item(),
             "loss_saxs2saxs": loss_saxs2saxs.item(),
@@ -70,6 +64,13 @@ class PlPairVAE(pl.LightningModule):
             "loss_saxs2les": loss_saxs2les.item(),
             "loss_les2saxs": loss_les2saxs.item()
         }
+        
+        loss_total = (self.weight_latent_similarity * loss_latent +
+                      self.weight_saxs2saxs * loss_saxs2saxs +
+                      self.weight_les2les * loss_les2les +
+                      self.weight_saxs2les * loss_saxs2les +
+                      self.weight_les2saxs * loss_les2saxs)
+
         return loss_total, details
 
     def training_step(self, batch, batch_idx):
@@ -79,6 +80,7 @@ class PlPairVAE(pl.LightningModule):
         loss_total, details = self.compute_loss(batch, outputs)
 
         self.log('train_loss', loss_total, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_loss_latent', details["loss_latent"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('train_loss_saxs2saxs', details["loss_saxs2saxs"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('train_loss_les2les', details["loss_les2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('train_loss_saxs2les', details["loss_saxs2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
@@ -93,7 +95,7 @@ class PlPairVAE(pl.LightningModule):
         loss_total, details = self.compute_loss(batch, outputs)
 
         self.log('val_loss', loss_total, on_step=True, on_epoch=True, prog_bar=True)
-
+        self.log('val_loss_latent', details["loss_latent"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('val_loss_saxs2saxs', details["loss_saxs2saxs"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('val_loss_les2les', details["loss_les2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)
         self.log('val_loss_saxs2les', details["loss_saxs2les"], on_step=True, on_epoch=True, prog_bar=False, sync_dist=True)

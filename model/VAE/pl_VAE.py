@@ -32,7 +32,8 @@ class PlVAE(pl.LightningModule):
             x = torch.log(x + 1e-9)
             recon = torch.log(recon+ 1e-9)
         recon_loss = F.mse_loss(recon, x, reduction='mean')
-        kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
+        #kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
+        kl_div = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
         return recon_loss + self.beta * kl_div, recon_loss, kl_div
 
     def training_step(self, batch, batch_idx):

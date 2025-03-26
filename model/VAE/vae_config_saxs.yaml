@@ -22,15 +22,15 @@ training :
   num_gpus : 1
   num_nodes : 1
   num_epochs : 200
-  patience : 10
+  patience : 30
 
   batch_size: 16
   num_workers: 3
 
-  beta: 0.001
+  beta: 0.0001
 
   max_lr : 0.0001
-  T_max : 25
+  T_max : 50
   eta_min : 0.0000001
   
 model :
