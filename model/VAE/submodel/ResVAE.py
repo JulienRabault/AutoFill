@@ -42,7 +42,7 @@ class ResidualUpBlock(nn.Module):
 class ResVAE(nn.Module):
     def __init__(self, input_dim, latent_dim, in_channels=1,
                  down_channels=[32, 64, 128], up_channels=[128, 64, 32], dilation=1,
-                 output_channels=1, strat="y", *args,  **kwargs):
+                 output_channels=1, strat="y", use_sigmoid=True, *args,  **kwargs):
         super(ResVAE, self).__init__()
 
         if len(down_channels) != len(up_channels):
@@ -81,14 +81,16 @@ class ResVAE(nn.Module):
             current_in = out_ch
         decoder_layers.append(ResidualUpBlock(current_in, output_channels, kernel_size=3))
 
-        self.decoder = nn.Sequential(
+        layers = [
             nn.Linear(latent_dim, up_channels[0] * input_dim),
             nn.Unflatten(1, (up_channels[0], input_dim)),
             *decoder_layers,
-            nn.Upsample(size=self.input_dim),
-            nn.Sigmoid()
-        )
-        self.display_info()
+            nn.Upsample(size=self.input_dim)
+        ]
+        if use_sigmoid:
+            layers.append(nn.Sigmoid())
+        self.decoder = nn.Sequential(*layers)
+        # self.display_info()
 
     def display_info(self):
         test_tensor = torch.zeros(1, self.in_channels, self.input_dim)
@@ -134,5 +136,9 @@ class ResVAE(nn.Module):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         recon = self.decode(z)
-
-        return x, recon, mu, logvar, z
+        return {
+            "recon": recon,
+            "mu": mu,
+            "logvar": logvar,
+            "z": z
+        }

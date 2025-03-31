@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def submit_job(mode, config, tech, mat, gpu):
     print(config)
     job_name = f"{mode}_{tech}_{mat}-%j"
-    log_file = f"log_{mode}_tech_{tech}_mat_{mat}-%j.err"
+    log_file = f"log_{mode}_tech_{tech}_mat_{mat}.err"
 
     command = [
         "sbatch",
@@ -18,7 +18,7 @@ def submit_job(mode, config, tech, mat, gpu):
         "--partition", "GPUNodes",
         "--nodes", "1",
         f"--gres=gpu:{gpu}",
-        f"--ntasks-per-node={gpu}",
+        f"--ntasks-per-node","1",
         "--cpus-per-task", "4",
         "--gres-flags", "enforce-binding",
         "--wrap",
@@ -38,7 +38,7 @@ def submit_job(mode, config, tech, mat, gpu):
 #python3 srun.py --mode pair_vae --config "model/pair_vae2.yaml" --mat ag 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", required=True, help="Model à utiliser")
+    parser.add_argument("--mode", required=True, help="Model à utiliser", choices=["vae", "pair_vae"])
     parser.add_argument("--config", required=True, help="Chemin vers config de base à utiliser")
     parser.add_argument("--tech", required=False, help="Technique séparé par ','")
     parser.add_argument("--mat", required=False, help="Matériau séparé par ','")

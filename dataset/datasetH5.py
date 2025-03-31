@@ -44,7 +44,7 @@ class HDF5Dataset(Dataset):
             self._apply_data_fraction(sample_frac)
 
         # Print initialization info
-        self._print_init_info()
+        # self._print_init_info()
 
     def _print_init_info(self):
         """Print dataset initialization information"""
@@ -145,7 +145,6 @@ class HDF5Dataset(Dataset):
         # Convert to tensors if needed
         data_q = torch.as_tensor(data_q, dtype=torch.float32)
         data_y = torch.as_tensor(data_y, dtype=torch.float32)
-        
         # return data_q, data_y, metadata, self.csv_index[original_idx]
         return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), 
                 "metadata": metadata, "csv_index": self.csv_index[original_idx]}

@@ -1,3 +1,4 @@
+experiment_name: "test_julien"
 dataset :
   hdf5_file: "/projects/pnria/julien/autofill/all_data.h5"
   metadata_filters :
@@ -11,18 +12,18 @@ dataset :
     y :
       MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size : 80
+        pad_size : 500
         value : 0
     q :
       PaddingTransformer:
-        pad_size: 80
+        pad_size: 500
         value: 0
 
 training : 
   num_gpus : 1
   num_nodes : 1
-  num_epochs : 300
-  patience : 30
+  num_epochs : 75
+  patience : 10
 
   batch_size: 64
   num_workers: 3
@@ -40,9 +41,9 @@ model :
       in_channels: 1
       output_channels: 1
       dilation : 1
-      input_dim : 80
+      input_dim : 500
       latent_dim : 64
-      down_channels: [64, 128, 256]
-      up_channels: [256, 128, 64]
+      down_channels: [16, 32, 64, 128, 256,]
+      up_channels: [256, 128, 64, 32, 16]
       strat: "y"
   

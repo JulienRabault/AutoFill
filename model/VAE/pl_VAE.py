@@ -27,7 +27,12 @@ class PlVAE(pl.LightningModule):
         metadata = x["metadata"]
         return self.model(y=y, q=q, metadata=metadata)
         
-    def compute_loss(self, x, recon, mu, logvar):
+    def compute_loss(self, batch, output):
+        x = batch["data_y"]
+        recon = output['recon']
+        mu = output['mu']
+        logvar = output['logvar']
+
         if self.output_transform_log :
             x = torch.log(x + 1e-9)
             recon = torch.log(recon+ 1e-9)
@@ -41,8 +46,8 @@ class PlVAE(pl.LightningModule):
         q = batch["data_q"]
         metadata = batch["metadata"]
         
-        x, recon, mu, logvar, z = self.model(y=y, q=q, metadata=metadata)
-        loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
+        output = self.model(y=y, q=q, metadata=metadata)
+        loss, recon_loss, kl_loss = self.compute_loss(batch, output)
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log('train_recon_loss', recon_loss, on_step=True, on_epoch=True, prog_bar=False)
@@ -55,8 +60,8 @@ class PlVAE(pl.LightningModule):
         q = batch["data_q"]
         metadata = batch["metadata"]
         
-        x, recon, mu, logvar, z = self.model(y=y, q=q, metadata=metadata)
-        loss, recon_loss, kl_loss = self.compute_loss(x, recon, mu, logvar)
+        output = self.model(y=y, q=q, metadata=metadata)
+        loss, recon_loss, kl_loss = self.compute_loss(batch, output)
         
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log('val_recon_loss', recon_loss, on_step=True, on_epoch=True, prog_bar=False)
