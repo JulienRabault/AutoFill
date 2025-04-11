@@ -19,12 +19,17 @@ class HDF5Dataset(Dataset):
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
 
-        self.transformer_q = SequentialTransformer(transform["q"])
-        self.transformer_y = SequentialTransformer(transform["y"])
+        if transform is not None:
+            self.transformer_q = SequentialTransformer(transform["q"])
+            self.transformer_y = SequentialTransformer(transform["y"])
+        else:
+            self.transformer_q = SequentialTransformer()
+            self.transformer_y = SequentialTransformer()
 
         self.data_q = self.hdf['data_q']
         self.data_y = self.hdf['data_y']
         self.csv_index = self.hdf['csv_index']
+        self.len = self.hdf['len']
 
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
                              ['data_q', 'data_y', 'len', 'csv_index']]
@@ -147,8 +152,42 @@ class HDF5Dataset(Dataset):
         data_y = torch.as_tensor(data_y, dtype=torch.float32)
         # return data_q, data_y, metadata, self.csv_index[original_idx]
         return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), 
-                "metadata": metadata, "csv_index": self.csv_index[original_idx]}
+                "metadata": metadata, "csv_index": self.csv_index[original_idx], "len": self.len[original_idx]}
 
     def close(self):
         """Close the HDF5 file"""
         self.hdf.close()
+
+from collections import defaultdict
+from tqdm import tqdm
+import torch
+
+if __name__ == "__main__":
+    metadata_filters = {"technique": ["saxs"]}
+    hdf5_file = "/projects/pnria/julien/autofill/all_data.h5"
+    conversion_dict_path = "/projects/pnria/julien/autofill/conversion_dict_all.json"
+    dataset = HDF5Dataset(
+        hdf5_file=hdf5_file,
+        metadata_filters=metadata_filters,
+        conversion_dict_path=conversion_dict_path,
+        sample_frac=1,
+        requested_metadata=["material", "shape"],
+    )
+
+    shape_length_counts = defaultdict(lambda: defaultdict(int))
+    for i in tqdm(range(len(dataset)), desc="Processing samples"):
+        sample = dataset[i]
+        shape_cat = sample["metadata"]["shape"].item() if torch.is_tensor(sample["metadata"]["shape"]) else sample["metadata"]["shape"]
+        y = sample["len"]
+        try:
+            shape_length_counts[shape_cat][y] += 1
+        except Exception:
+            continue
+
+    print("\nDistribution of data_y lengths by 'shape':")
+    for shape_cat, length_counter in shape_length_counts.items():
+        print(f"\nShape: {shape_cat}")
+        for length, count in sorted(length_counter.items()):
+            print(f"  Length {length}: {count} sample(s)")
+
+    dataset.close()

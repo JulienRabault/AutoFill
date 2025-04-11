@@ -62,8 +62,11 @@ class PaddingTransformer:
 
 
 class SequentialTransformer:
-    def __init__(self, config):
-        self.transformers = self.parse_config(config)
+    def __init__(self, config=None):
+        if config is not None:
+            self.transformers = self.parse_config(config)
+        else:
+            self.transformers = []
     
     def parse_config(self, config):
         transformer_map = {

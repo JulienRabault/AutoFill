@@ -1,12 +1,12 @@
 experiment_name: "test_julien"
 dataset :
-  hdf5_file: "/projects/pnria/julien/autofill/all_data.h5"
+  hdf5_file: "/projects/pnria/DATA/AUTOFILL/v2/all_data_les_v2.h5"
   metadata_filters :
     material: ["ag"]
     technique : ["les"]
     type : ["simulation"]
   requested_metadata : ["shape", "material"]
-  conversion_dict_path: "/projects/pnria/julien/autofill/conversion_dict_all.json"
+  conversion_dict_path: "/projects/pnria/DATA/AUTOFILL/v2/all_data_les_v2.json"
   sample_frac: 1.0
   transform : 
     y :
@@ -24,6 +24,8 @@ training :
   num_nodes : 1
   num_epochs : 75
   patience : 10
+  use_loglog: False
+
 
   batch_size: 64
   num_workers: 3

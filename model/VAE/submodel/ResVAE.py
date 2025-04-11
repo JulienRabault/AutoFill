@@ -57,7 +57,7 @@ class ResVAE(nn.Module):
         self.down_channels = down_channels
         self.up_channels = up_channels
         self.strat = strat
-
+        
         encoder_layers = []
         current_in = in_channels
         for out_ch in down_channels:
@@ -122,11 +122,12 @@ class ResVAE(nn.Module):
         return mu + eps * std
 
     def decode(self, z):
-        """ DÃ©codeur VAE """
-        for i, layer in enumerate(self.decoder):
+        """Decode latent vector back to input space and print the tensor sizes before and after upsample once per forward."""
+        for layer in self.decoder:
             z = layer(z)
         return z
 
+    
     def forward(self, y, q=None, metadata=None):
         if self.strat == "y":
             x = y

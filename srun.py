@@ -19,7 +19,7 @@ def submit_job(mode, config, tech, mat, gpu):
         "--nodes", "1",
         f"--gres=gpu:{gpu}",
         f"--ntasks-per-node","1",
-        "--cpus-per-task", "4",
+        "--cpus-per-task", "8",
         "--gres-flags", "enforce-binding",
         "--wrap",
         f"srun singularity exec /apps/containerCollections/CUDA12/pytorch2-NGC-24-02.sif /projects/pnria/julien/env/autofill_env/bin/python train.py --name {tech}_{mat}_gpu{gpu} --mode {mode} --config {config} --technique {tech} --material {mat} --devices {gpu}"
@@ -31,7 +31,7 @@ def submit_job(mode, config, tech, mat, gpu):
         logging.info(f"Job {job_name} submitted successfully.")
     else:
         logging.error(f"Failed to submit job {job_name}: {result.stderr}")
-    subprocess.run("squeue")
+    subprocess.run(["squeue","--me"])
 
 #python3 srun.py --mode vae --config "model/VAE/vae_config_les.yaml" --mat ag --tech les
 #python3 srun.py --mode vae --config "model/VAE/vae_config_saxs.yaml" --mat ag --tech saxs
@@ -39,10 +39,17 @@ def submit_job(mode, config, tech, mat, gpu):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", required=True, help="Model à utiliser", choices=["vae", "pair_vae"])
-    parser.add_argument("--config", required=True, help="Chemin vers config de base à utiliser")
+    # parser.add_argument("--config", required=True, help="Chemin vers config de base à utiliser")
     parser.add_argument("--tech", required=False, help="Technique séparé par ','")
     parser.add_argument("--mat", required=False, help="Matériau séparé par ','")
     parser.add_argument("--gpu", default=1, type=int, help="Nombre de GPUs")
 
+
     args = parser.parse_args()
-    submit_job(args.mode, args.config, args.tech, args.mat, args.gpu)
+    if args.tech == "saxs":
+        config = "/projects/pnria/julien/autofill/model/VAE/vae_config_saxs.yaml"
+    elif args.tech == "les":
+        config = "/projects/pnria/julien/autofill/model/VAE/vae_config_les.yaml"
+    else:
+        raise ValueError("Tech")
+    submit_job(args.mode, config, args.tech, args.mat, args.gpu)

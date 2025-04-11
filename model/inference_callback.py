@@ -22,12 +22,13 @@ class InferencePlotCallback(pl.Callback):
     Callback to perform inference and plot original and reconstructed outputs.
     If model returns a dict, plots are created for each key containing 'recon'.
     """
-    def __init__(self, dataloader, output_dir="inference_results", num_samples=4, every_n_epochs=1):
+    def __init__(self, dataloader, output_dir="inference_results", num_samples=4, every_n_epochs=1, use_loglog=False):
         super().__init__()
         self.dataloader = dataloader
         self.output_dir = output_dir
         self.num_samples = num_samples
         self.every_n_epochs = every_n_epochs
+        self.use_loglog = use_loglog
         os.makedirs(self.output_dir, exist_ok=True)
 
     def on_validation_epoch_end(self, trainer, pl_module):
@@ -61,10 +62,15 @@ class InferencePlotCallback(pl.Callback):
         indices = sample(range(len(inputs)), min(self.num_samples, len(inputs)))
         fig, axs = plt.subplots(2, 2, figsize=(12, 8))
         axs = axs.ravel()
-        for idx, i in enumerate(indices):
+        for idx in range(len(indices)):
+            i = indices[idx]
             ax = axs[idx]
-            ax.plot(inputs[i].cpu().numpy(), label="Original")
-            ax.plot(reconstructions[i].cpu().numpy(), label="Reconstructed")
+            if self.use_loglog:
+                ax.loglog(inputs[i].cpu().numpy(), label="Original")
+                ax.loglog(reconstructions[i].cpu().numpy(), label="Reconstructed")
+            else:
+                ax.plot(inputs[i].cpu().numpy(), label="Original")
+                ax.plot(reconstructions[i].cpu().numpy(), label="Reconstructed")
             ax.set_title(f"{key} Sample {i}")
             ax.legend()
             ax.grid(True)
@@ -76,3 +82,10 @@ class InferencePlotCallback(pl.Callback):
         plt.close()
         if hasattr(trainer.logger, "experiment"):
             trainer.logger.experiment.log_artifact(trainer.logger.run_id, plot_path, artifact_path="inference_images")
+
+
+
+
+
+
+

@@ -53,7 +53,8 @@ def train(config):
         tracking_uri="file:runs/mlrun",
     )
     mlflow_logger.log_hyperparams(config)
-    inference_callback = InferencePlotCallback(train_loader, output_dir=os.path.join("runs", config["experiment_name"]))
+    use_loglog = config["training"]["use_loglog"]
+    inference_callback = InferencePlotCallback(train_loader, output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
     mae_callback = MAEMetricCallback(val_loader)
     trainer = pl.Trainer(
         strategy='ddp' if torch.cuda.device_count() > 1 else "auto",
@@ -61,7 +62,7 @@ def train(config):
         devices=config["training"]["num_gpus"] if torch.cuda.is_available() else 1,
         num_nodes=config["training"]["num_nodes"],
         max_epochs=config["training"]["num_epochs"],
-        log_every_n_steps=10,
+        log_every_n_steps=15,
         callbacks=[model_ckpt, early_stopping, inference_callback, mae_callback],
         logger=mlflow_logger,
     )
@@ -74,35 +75,36 @@ def train(config):
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
     print(f"Fichier YAML sauvegardé dans : {file_path}")
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    mlflow.pytorch.log_model(model, "model")
     print("Fin du train")
 
 def grid_search(base_config):
     if base_config["dataset"]["metadata_filters"]["technique"][0] == "les":
         betas = [0.0001, 0.00001, 0.000001]
-        eta_mins = [1e-7, 1e-6]
-        batch_sizes = [64, 128, 256]
+        batch_sizes = [32, 64, 128, 256]
         latent_dims = [64, 128, 256]
     else:
         betas = [0.001, 0.0001, 0.00001, 0.000001]
-        eta_mins = [1e-7, 1e-6]
-        latent_dims = [64, 128, 256]
-        batch_sizes = [32, 64, 128, 256]
+        latent_dims = [64, 128, 256, 512]
+        batch_sizes = [32, 64, 128]
 
-    for beta, eta_min, latent_dim, batch_size in itertools.product(
-        betas, eta_mins, latent_dims, batch_sizes
+    for beta, latent_dim, batch_size in itertools.product(
+        betas, latent_dims, batch_sizes
     ):
         config = copy.deepcopy(base_config)
         mat = config["dataset"]["metadata_filters"]["material"]
         tech = config["dataset"]["metadata_filters"]["technique"]
         config["training"]["beta"] = beta
-        config["training"]["eta_min"] = eta_min
         config["training"]["batch_size"] = batch_size
         config["model"]["args"]["latent_dim"] = latent_dim
         config["experiment_name"] = (
-            f"grid_{mat[0]}_{tech[0]}_beta{beta}_etamin{eta_min}_ld{latent_dim}_bs{batch_size}"
+            f"grid_{mat[0]}_{tech[0]}_beta{beta}_ld{latent_dim}_bs{batch_size}"
         )
+        print(f"Running experiment: {config['experiment_name']}")
+        print("========================================")
         train(config)
+        print("========================================")
+        print("End of Experiment")
+        print("========================================")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

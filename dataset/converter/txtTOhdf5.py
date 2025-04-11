@@ -7,13 +7,14 @@ import h5py
 from tqdm import tqdm
 import warnings
 import math
-
+from pathlib import Path
 
 class TextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
                  final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'], json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
+        self.base= Path(self.data_dir)
         self.output_dir = output_dir
         self.pad_size = pad_size
         self.hdf_cache = hdf_cache
@@ -66,7 +67,7 @@ class TextToHDF5Converter:
         self.hdf_files.flush()
 
     def _load_data_from_file(self, file_path):
-        normalized_path = os.path.normpath(file_path.replace('\\', os.sep).replace('/', os.sep))
+        normalized_path = Path(file_path).resolve()
         full_path = normalized_path
 
         if not os.path.exists(full_path):
@@ -103,6 +104,9 @@ class TextToHDF5Converter:
                 if len(values) == expected_num_columns:
                     data_q.append(values[0])
                     data_y.append(values[1])
+
+                if len(data_q) > self.pad_size:
+                    break
 
         if not data_q or not data_y:
             raise ValueError(f"Pas de données valides trouvées dans: {full_path}")
@@ -146,7 +150,8 @@ class TextToHDF5Converter:
         with tqdm(total=len(self.dataframe), desc="Processing files") as pbar:
             for idx, row in self.dataframe.iterrows():
                 pbar.update(1)
-                file_path = os.path.join(self.data_dir, row['path'])
+                rel_path = row['path'].lstrip("/")
+                file_path = self.base / rel_path
                 try:
                     data_q, data_y = self._load_data_from_file(file_path)
                     original_len = len(data_q)
@@ -182,17 +187,17 @@ class TextToHDF5Converter:
 
 
 if __name__ == "__main__":
-    data_csv_path = "/projects/pnria/DATA/AUTOFILL/all_data.csv"
+    data_csv_path = "/projects/pnria/DATA/AUTOFILL/v2/all_data_v2.csv"
 
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
 
     dataframe = pd.read_csv(data_csv_path)
     data_dir = '/projects/pnria/DATA/AUTOFILL/'
-    final_output_file = 'all_data.h5'
-    json_output = 'conversion_dict_all.json'
+    final_output_file = '/projects/pnria/DATA/AUTOFILL/v2/all_data_v2.h5'
+    json_output = '/projects/pnria/DATA/AUTOFILL/v2/all_data_v2.json'
     print(dataframe.columns)
     print(dataframe.head())
-    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file, json_output=json_output)
+    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file, json_output=json_output, pad_size=900)
     converter.convert()
     print(f"Data successfully converted to {final_output_file}")

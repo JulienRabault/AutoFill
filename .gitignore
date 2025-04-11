@@ -1,3 +1,4 @@
 *.err
 *.h5
 *.json
+runs/*

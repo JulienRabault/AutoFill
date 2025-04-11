@@ -50,7 +50,7 @@ def train(config):
     )
     mlflow_logger = MLFlowLogger(
         experiment_name="AUTOFILL", run_name=config["experiment_name"],
-        tracking_uri="file:run/mlrun",
+        tracking_uri="https://mlflowts.irit.fr",
     )
     mlflow_logger.log_hyperparams(config)
     mlflow.enable_system_metrics_logging()
