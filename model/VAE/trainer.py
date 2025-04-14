@@ -27,7 +27,6 @@ def train(config):
         transform=config["dataset"]["transform"],
         requested_metadata=config["dataset"]["requested_metadata"],
     )
-    print("========================================")
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
@@ -46,16 +45,15 @@ def train(config):
         mode='min'
     )
     model_ckpt = ModelCheckpoint(
-        dirpath=os.join.path("runs", config["experiment_name"]), monitor="val_loss", save_top_k=1, mode="min"
+        dirpath=os.path.join("runs", config["experiment_name"]), monitor="val_loss", save_top_k=1, mode="min"
     )
     mlflow_logger = MLFlowLogger(
         experiment_name="AUTOFILL", run_name=config["experiment_name"],
-        tracking_uri="https://mlflowts.irit.fr",
+        tracking_uri="file:runs/mlrun",
     )
     mlflow_logger.log_hyperparams(config)
-    mlflow.enable_system_metrics_logging()
-    mlflow.pytorch.autolog()
-    inference_callback = InferencePlotCallback(train_loader, output_dir=os.join.path("runs", config["experiment_name"]))
+    use_loglog = config["training"]["use_loglog"]
+    inference_callback = InferencePlotCallback(train_loader, output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
     mae_callback = MAEMetricCallback(val_loader)
     trainer = pl.Trainer(
         strategy='ddp' if torch.cuda.device_count() > 1 else "auto",
@@ -63,7 +61,7 @@ def train(config):
         devices=config["training"]["num_gpus"] if torch.cuda.is_available() else 1,
         num_nodes=config["training"]["num_nodes"],
         max_epochs=config["training"]["num_epochs"],
-        log_every_n_steps=10,
+        log_every_n_steps=15,
         callbacks=[model_ckpt, early_stopping, inference_callback, mae_callback],
         logger=mlflow_logger,
     )

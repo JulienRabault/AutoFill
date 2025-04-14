@@ -16,13 +16,14 @@ def move_to_device(batch, device):
         return tuple(move_to_device(v, device) for v in batch)
     else:
         return batch
+    
 
 class InferencePlotCallback(pl.Callback):
     """
     Callback to perform inference and plot original and reconstructed outputs.
     If model returns a dict, plots are created for each key containing 'recon'.
     """
-    def __init__(self, dataloader, output_dir="inference_results", num_samples=4, every_n_epochs=1, use_loglog=False):
+    def __init__(self, dataloader, output_dir="inference_results", num_samples=4, every_n_epochs=10, use_loglog=False):
         super().__init__()
         self.dataloader = dataloader
         self.output_dir = output_dir
@@ -82,10 +83,3 @@ class InferencePlotCallback(pl.Callback):
         plt.close()
         if hasattr(trainer.logger, "experiment"):
             trainer.logger.experiment.log_artifact(trainer.logger.run_id, plot_path, artifact_path="inference_images")
-
-
-
-
-
-
-
