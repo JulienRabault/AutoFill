@@ -12,28 +12,28 @@ dataset :
     y :
       MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size : 890
+        pad_size : 500
         value : 0
     q :
       PaddingTransformer:
-        pad_size: 890
+        pad_size: 500
         value: 0
 
 training :
   num_gpus : 1
   num_nodes : 1
-  num_epochs : 150
+  num_epochs : 200
   patience : 20
   use_loglog: True
 
-  batch_size: 64
+  batch_size: 32
   num_workers: 8
 
-  beta: 0.005
+  beta: 0.000001
 
   max_lr : 0.0001
-  T_max : 150
-  eta_min : 0.0000001
+  T_max : 200
+  eta_min : 0.00000001
 
 model :
   vae_class : ResVAE
@@ -42,7 +42,7 @@ model :
       in_channels: 1
       output_channels: 1
       dilation : 1
-      input_dim : 890
+      input_dim : 500
       latent_dim : 64
       down_channels: [16, 32, 64, 128, 256, 512]
       up_channels: [512, 256, 128, 64, 32, 16]
