@@ -8,12 +8,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def submit_job(mode, config, tech, mat, gpu):
     print(config)
     job_name = f"{mode}_{tech}_{mat}-%j"
-    log_file = f"log_{mode}_tech_{tech}_mat_{mat}.err"
+    log_file = f"log_{mode}_tech_{tech}_mat_{mat}-%j.err"
+    log_file2 = f"log_{mode}_tech_{tech}_mat_{mat}-%j.out"
 
     command = [
         "sbatch",
         "--job-name", job_name,
-        "--output", log_file,
+        "--output", log_file2,
         "--error", log_file,
         "--partition", "GPUNodes",
         "--nodes", "1",
@@ -39,17 +40,20 @@ def submit_job(mode, config, tech, mat, gpu):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", required=True, help="Model à utiliser", choices=["vae", "pair_vae"])
-    # parser.add_argument("--config", required=True, help="Chemin vers config de base à utiliser")
+    #parser.add_argument("--config", required=True, help="Chemin vers config de base à utiliser")
     parser.add_argument("--tech", required=False, help="Technique séparé par ','")
     parser.add_argument("--mat", required=False, help="Matériau séparé par ','")
     parser.add_argument("--gpu", default=1, type=int, help="Nombre de GPUs")
 
 
     args = parser.parse_args()
-    if args.tech == "saxs":
-        config = "/projects/pnria/julien/autofill/model/VAE/vae_config_saxs.yaml"
-    elif args.tech == "les":
-        config = "/projects/pnria/julien/autofill/model/VAE/vae_config_les.yaml"
-    else:
-        raise ValueError("Tech")
+    if args.mode == "pair_vae":
+        config = "model/pair_vae2.yaml"
+    else :
+        if args.tech == "saxs":
+            config = "model/VAE/vae_config_saxs.yaml"
+        elif args.tech == "les":
+            config = "model/VAE/vae_config_les.yaml"
+        else:
+            raise ValueError("Tech")
     submit_job(args.mode, config, args.tech, args.mat, args.gpu)

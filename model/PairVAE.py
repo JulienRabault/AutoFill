@@ -69,13 +69,21 @@ class PairVAE(nn.Module):
         # Domaine SAXS
         y_saxs = batch["data_y_saxs"]
         q_saxs = batch["data_q_saxs"]
-        x_saxs, recon_saxs, mu_saxs, logvar_saxs, z_saxs = self.vae_saxs(y=y_saxs, q=q_saxs, metadata=metadata)
+        output_saxs = self.vae_saxs(y=y_saxs, q=q_saxs, metadata=metadata)
+        recon_saxs = output_saxs["recon"]
+        mu_saxs = output_saxs["mu"]
+        logvar_saxs = output_saxs["logvar"]
+        z_saxs = output_saxs["z"]
 
         # Domaine LES
         y_les = batch["data_y_les"]
         q_les = batch["data_q_les"]
-        x_les, recon_les, mu_les, logvar_les, z_les = self.vae_les(y=y_les, q=q_les, metadata=metadata)
-
+        output_les = self.vae_les(y=y_les, q=q_les, metadata=metadata)
+        recon_les = output_les["recon"]
+        mu_les = output_les["mu"]
+        logvar_les = output_les["logvar"]
+        z_les = output_les["z"]
+        
         # Reconstructions croisées
         recon_les2saxs = self.vae_saxs.decode(z_les)
         recon_saxs2les = self.vae_les.decode(z_saxs)

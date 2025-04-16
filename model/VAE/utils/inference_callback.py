@@ -23,14 +23,15 @@ class InferencePlotCallback(pl.Callback):
     Callback to perform inference and plot original and reconstructed outputs.
     If model returns a dict, plots are created for each key containing 'recon'.
     """
-    def __init__(self, dataloader, output_dir="inference_results", num_samples=4, every_n_epochs=10, use_loglog=False):
+    def __init__(self, dataloader, artifact_file="plot.png", output_dir="inference_results", num_samples=4, every_n_epochs=10, use_loglog=False):
         super().__init__()
         self.dataloader = dataloader
         self.output_dir = output_dir
         self.num_samples = num_samples
         self.every_n_epochs = every_n_epochs
         self.use_loglog = use_loglog
-        os.makedirs(self.output_dir, exist_ok=True)
+        self.artifact_file = artifact_file
+        
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.current_epoch % self.every_n_epochs == 0:
@@ -76,10 +77,21 @@ class InferencePlotCallback(pl.Callback):
             ax.legend()
             ax.grid(True)
         plt.tight_layout()
-        key_dir = os.path.join(self.output_dir, "samples", key)
-        os.makedirs(key_dir, exist_ok=True)
-        plot_path = os.path.join(key_dir, f"epoch_{trainer.current_epoch}_{key}.png")
-        plt.savefig(plot_path)
-        plt.close()
+
         if hasattr(trainer.logger, "experiment"):
-            trainer.logger.experiment.log_artifact(trainer.logger.run_id, plot_path, artifact_path="inference_images")
+            trainer.logger.experiment.log_figure(trainer.logger.run_id, fig, artifact_file=self.artifact_file)
+
+        else :
+            os.makedirs(self.output_dir, exist_ok=True)
+            key_dir = os.path.join(self.output_dir, "samples", key)
+            os.makedirs(key_dir, exist_ok=True)
+            plot_path = os.path.join(key_dir, f"epoch_{trainer.current_epoch}_{key}.png")
+            plt.savefig(plot_path)
+            plt.close()
+            
+
+
+
+
+
+
