@@ -55,7 +55,7 @@ def train(config):
         mode='min'
     )
     model_ckpt = ModelCheckpoint(
-        dirpath=os.path.join("runs", config["experiment_name"]), monitor="val_loss", save_top_k=1, mode="min"
+        dirpath=os.path.join("runs", config["experiment_name"]), monitor="val_loss", save_top_k=1, mode="min")
     
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
@@ -73,8 +73,6 @@ def train(config):
         tracking_uri = "file:runs/mlrun",
     )
     mlflow_logger.log_hyperparams(config)
-    use_loglog = config["training"]["use_loglog"]
-    inference_callback = InferencePlotCallback(train_loader, output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
 
     use_loglog = config["training"]["use_loglog"]
     inference_callback = InferencePlotCallback(val_loader, artifact_file = "val_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)

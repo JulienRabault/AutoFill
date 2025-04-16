@@ -23,7 +23,7 @@ class InferencePlotCallback(pl.Callback):
     Callback to perform inference and plot original and reconstructed outputs.
     If model returns a dict, plots are created for each key containing 'recon'.
     """
-    def __init__(self, dataloader, artifact_file="plot.png", output_dir="inference_results", num_samples=4, every_n_epochs=10, use_loglog=False):
+    def __init__(self, dataloader, artifact_file="plot.png", output_dir="inference_results", num_samples=4, every_n_epochs=1, use_loglog=False):
         super().__init__()
         self.dataloader = dataloader
         self.output_dir = output_dir
