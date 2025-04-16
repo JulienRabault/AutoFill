@@ -113,22 +113,20 @@ def grid_search(base_config):
     weight_les2les_list = [0.04, 0.08, 0.5]
     weight_les2saxs_list = [0.5, 1, 1.5]
 
-    for lambda_param, weight_latent_similarity, weight_saxs2saxs, weight_saxs2les, weight_les2les, weight_les2saxs, batch_size in itertools.product(
-        lambda_params, weight_latent_similarities, weight_saxs2saxs_list,
-        weight_saxs2les_list, weight_les2les_list, weight_les2saxs_list, batch_sizes
+    for weight_latent_similarity, weight_saxs2saxs, weight_saxs2les, weight_les2les, weight_les2saxs in itertools.product(
+        weight_latent_similarities, weight_saxs2saxs_list,
+        weight_saxs2les_list, weight_les2les_list, weight_les2saxs_list
     ):
         config = copy.deepcopy(base_config)
         mat = config["dataset"]["metadata_filters"]["material"]
-        config["training"]["lambda_param"] = lambda_param
         config["training"]["weight_latent_similarity"] = weight_latent_similarity
         config["training"]["weight_saxs2saxs"] = weight_saxs2saxs
         config["training"]["weight_saxs2les"] = weight_saxs2les
         config["training"]["weight_les2les"] = weight_les2les
         config["training"]["weight_les2saxs"] = weight_les2saxs
-        config["training"]["batch_size"] = batch_size
         config["experiment_name"] = (
-            f"grid_{mat[0]}_lam{lambda_param}_wlat{weight_latent_similarity}_wsaxs2saxs{weight_saxs2saxs}"
-            f"_wsaxs2les{weight_saxs2les}_wles2les{weight_les2les}_wles2saxs{weight_les2saxs}_bs{batch_size}"
+            f"grid_{mat[0]}_wlat{weight_latent_similarity}_wsaxs2saxs{weight_saxs2saxs}"
+            f"_wsaxs2les{weight_saxs2les}_wles2les{weight_les2les}_wles2saxs{weight_les2saxs}"
         )
         train(config)
 
