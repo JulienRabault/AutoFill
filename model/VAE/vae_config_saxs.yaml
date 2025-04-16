@@ -5,6 +5,7 @@ dataset :
     material: ["ag"]
     technique : ["saxs"]
     type : ["simulation"]
+    shape : ["cylinder"]
   requested_metadata : ["shape", "material"]
   conversion_dict_path: "/projects/pnria/DATA/AUTOFILL/v2/all_data_saxs_v2.json"
   sample_frac: 1.0
@@ -12,27 +13,27 @@ dataset :
     y :
       MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size : 890
+        pad_size : 500
         value : 0
     q :
       PaddingTransformer:
-        pad_size: 890
+        pad_size: 500
         value: 0
 
 training :
   num_gpus : 1
   num_nodes : 1
-  num_epochs : 150
-  patience : 20
+  num_epochs : 300
+  patience : 50
   use_loglog: True
 
-  batch_size: 64
+  batch_size: 16
   num_workers: 8
 
-  beta: 0.005
+  beta: 0.0001
 
-  max_lr : 0.0001
-  T_max : 150
+  max_lr : 0.00001
+  T_max : 75
   eta_min : 0.0000001
 
 model :
@@ -42,8 +43,8 @@ model :
       in_channels: 1
       output_channels: 1
       dilation : 1
-      input_dim : 890
-      latent_dim : 64
-      down_channels: [16, 32, 64, 128, 256, 512]
-      up_channels: [512, 256, 128, 64, 32, 16]
+      input_dim : 500
+      latent_dim : 128
+      down_channels: [16, 32, 64, 128, 256]
+      up_channels: [256, 128, 64, 32, 16]
       strat: "y"

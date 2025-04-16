@@ -4,9 +4,10 @@
 import argparse
 import yaml 
 
-# from model.VAE.trainer import train as train_vae
+#from model.VAE.trainer import train as train_vae
 from model.VAE.grid_trainer import grid_search as train_vae
-from model.trainer import train as train_pairvae
+#from model.trainer import train as train_pairvae
+from model.grid_pair_trainer import grid_search as train_pairvae
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Entraînement d'un model")

@@ -138,6 +138,8 @@ class HDF5Dataset(Dataset):
         # Load main data
         data_q = self.data_q[original_idx]
         data_y = self.data_y[original_idx]
+        data_y_min = data_y.min()
+        data_y_max = data_y.max()
 
         # Get preprocessed metadata
         metadata = self._get_metadata(original_idx)
@@ -151,7 +153,7 @@ class HDF5Dataset(Dataset):
         data_q = torch.as_tensor(data_q, dtype=torch.float32)
         data_y = torch.as_tensor(data_y, dtype=torch.float32)
         # return data_q, data_y, metadata, self.csv_index[original_idx]
-        return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), 
+        return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), "data_y_min": data_y_min, "data_y_max": data_y_max,
                 "metadata": metadata, "csv_index": self.csv_index[original_idx], "len": self.len[original_idx]}
 
     def close(self):
