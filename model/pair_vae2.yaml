@@ -1,10 +1,10 @@
 experiment_name : PAIR_VAE_2
 dataset :
-  hdf5_file: "data/pair_saxs_les_closest_of_concentration.h5"
+  hdf5_file: "/projects/pnria/caroline/AUTOFILL/pair_saxs_les_closest_of_concentration.h5"
   metadata_filters :
     material: ["ag"]
   requested_metadata : ["shape", "material"]
-  conversion_dict_path: "data/conversion_dict_all.json"
+  conversion_dict_path: "/projects/pnria/caroline/AUTOFILL/conversion_dict_all.json"
   sample_frac: 1.0
   transform : 
     y_saxs :
@@ -33,7 +33,7 @@ training :
   patience : 20
   use_loglog: True
   
-  batch_size: 16
+  batch_size: 64
   num_workers: 3
 
   lambda_param : 0.005
@@ -44,7 +44,7 @@ training :
   weight_les2saxs : 1
 
   max_lr : 0.0001
-  T_max : 50
+  T_max : 100
   eta_min : 0.000001
 
 model :

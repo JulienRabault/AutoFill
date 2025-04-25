@@ -17,12 +17,12 @@ def move_to_device(batch, device):
     else:
         return batch
 
-class InferencePlotCallback(pl.Callback):
+class PairInferencePlotCallback(pl.Callback):
     """
     Callback to perform inference and plot original and reconstructed outputs.
     If model returns a dict, plots are created for each key containing 'recon'.
     """
-    def __init__(self, dataloader, artifact_file="plot.png", output_dir="inference_results", every_n_epochs=10, use_loglog=False):
+    def __init__(self, dataloader, artifact_file="plot.png", output_dir=None, every_n_epochs=10, use_loglog=False):
         super().__init__()
         self.dataloader = dataloader
         self.output_dir = output_dir
@@ -83,12 +83,13 @@ class InferencePlotCallback(pl.Callback):
         if hasattr(trainer.logger, "experiment"):
             trainer.logger.experiment.log_figure(trainer.logger.run_id, fig, artifact_file=self.artifact_file)
 
-        else :
+        elif self.output_dir:
             os.makedirs(self.output_dir, exist_ok=True)
-            key_dir = os.path.join(self.output_dir, "samples", key)
-            os.makedirs(key_dir, exist_ok=True)
-            plot_path = os.path.join(key_dir, f"epoch_{trainer.current_epoch}_{key}.png")
+            plot_path = os.path.join(self.output_dir, self.artifact_file)
             plt.savefig(plot_path)
+            plt.close()
+        else:
+            print("Output directory not specified. Plot not saved.")
             plt.close()
             
 
