@@ -2,3 +2,13 @@
 *.h5
 *.json
 runs/*
+model/VAE/__pycache__/grid_trainer.cpython-310.pyc
+model/VAE/__pycache__/pl_VAE.cpython-310.pyc
+model/VAE/submodel/__pycache__/registry.cpython-310.pyc
+model/VAE/submodel/__pycache__/ResVAE.cpython-310.pyc
+model/VAE/submodel/__pycache__/ResVAE2.cpython-310.pyc
+*.pyc
+*/*.pyc
+*/*/*.pyc
+*/*/*/*.pyc
+*.pkl
