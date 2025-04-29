@@ -1,3 +1,4 @@
+experiment_name : PAIR_VAE_2
 dataset :
   hdf5_file: "data/pair_saxs_les_closest_of_concentration.h5"
   metadata_filters :
@@ -9,32 +10,33 @@ dataset :
     y_saxs :
       MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size : 80
+        pad_size : 500
         value : 0
     y_les :
       MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size: 80
+        pad_size: 500
         value : 0
     q_les :
       PaddingTransformer:
-        pad_size : 80
+        pad_size : 500
         value: 0   
     q_saxs :
       PaddingTransformer:
-        pad_size: 80
+        pad_size: 500
         value: 0
           
 training :
   num_gpus : 1
   num_nodes : 1
-  num_epochs : 200
+  num_epochs : 300
   patience : 20
+  use_loglog: True
   
-  batch_size: 8
+  batch_size: 16
   num_workers: 3
 
-  lambda_param : 0.0001
+  lambda_param : 0.005
   weight_latent_similarity : 0.005
   weight_saxs2saxs : 0.04
   weight_saxs2les : 1
@@ -43,19 +45,19 @@ training :
 
   max_lr : 0.0001
   T_max : 50
-  eta_min : 0.00001
+  eta_min : 0.000001
 
 model :
   output_saxs_transform_log : True
   VAE_SAXS :
-    vae_class : ResVAE2
-    path_checkpoint : lightning_logs/version_80536/checkpoints/epoch=76-step=402787.ckpt
-    path_config : lightning_logs/version_80536/config_model.yaml
+    vae_class : ResVAE3
+    path_checkpoint : /projects/pnria/julien/autofill/runs/grid_ag_saxs_beta0.0001_ld64_bs16/epoch=197-step=517968.ckpt
+    path_config : /projects/pnria/julien/autofill/runs/grid_ag_saxs_beta0.0001_ld64_bs16/config_model.yaml
     args :
 
 
   VAE_LES :
-    vae_class : ResVAE
-    path_checkpoint : lightning_logs/version_80577/checkpoints/epoch=81-step=1323152.ckpt
-    path_config : lightning_logs/version_80577/config_model.yaml
+    vae_class : ResVAE3
+    path_checkpoint : /projects/pnria/julien/autofill/runs/grid_ag_les_beta0.0001_etamin1e-07_ld64_bs64/epoch=73-step=1593590.ckpt
+    path_config : /projects/pnria/julien/autofill/runs/grid_ag_les_beta0.0001_etamin1e-07_ld64_bs64/config_model.yaml
     args :

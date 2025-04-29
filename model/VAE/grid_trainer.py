@@ -8,15 +8,18 @@ import mlflow
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import MLFlowLogger
+
 from model.VAE.pl_VAE import PlVAE
 from dataset.datasetH5 import HDF5Dataset
-from model.inference_callback import InferencePlotCallback
-from model.metrics_callback import MAEMetricCallback
+from model.VAE.utils.inference_callback import InferencePlotCallback
+from model.VAE.utils.metrics_callback import MAEMetricCallback
 
 def train(config):
+    
     print("========================================")
     print("INIT Model")
     model = PlVAE(config)
+    
     print("========================================")
     print("INIT Dataset")
     dataset = HDF5Dataset(
@@ -27,7 +30,7 @@ def train(config):
         transform=config["dataset"]["transform"],
         requested_metadata=config["dataset"]["requested_metadata"],
     )
-    print("========================================")
+    
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
@@ -39,23 +42,37 @@ def train(config):
         val_dataset, batch_size=config["training"]["batch_size"], shuffle=False,
         num_workers=config["training"]["num_workers"]
     )
+
+    print("========================================")
+
     early_stopping = EarlyStopping(
         monitor='val_loss',
         patience=config["training"]['patience'],
         verbose=True,
         mode='min'
     )
-    model_ckpt = ModelCheckpoint(
-        dirpath=os.path.join("runs", config["experiment_name"]), monitor="val_loss", save_top_k=1, mode="min"
+    
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",
+        save_top_k=1,
+        mode="min",
+        every_n_epochs=5,
     )
+
     mlflow_logger = MLFlowLogger(
-        experiment_name="AUTOFILL", run_name=config["experiment_name"],
-        tracking_uri="file:runs/mlrun",
+        experiment_name = "AUTOFILL", 
+        run_name=config["experiment_name"],
+        log_model = True,
+        tracking_uri = "file:runs/mlrun",
     )
     mlflow_logger.log_hyperparams(config)
+
     use_loglog = config["training"]["use_loglog"]
-    inference_callback = InferencePlotCallback(train_loader, output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
+    inference_callback = InferencePlotCallback(val_loader, artifact_file = "val_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
+    train_inference_callback = InferencePlotCallback(train_loader, artifact_file = "train_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
+    
     mae_callback = MAEMetricCallback(val_loader)
+    
     trainer = pl.Trainer(
         strategy='ddp' if torch.cuda.device_count() > 1 else "auto",
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
@@ -63,29 +80,31 @@ def train(config):
         num_nodes=config["training"]["num_nodes"],
         max_epochs=config["training"]["num_epochs"],
         log_every_n_steps=15,
-        callbacks=[model_ckpt, early_stopping, inference_callback, mae_callback],
+        callbacks=[checkpoint_callback, early_stopping, inference_callback, train_inference_callback, mae_callback],
         logger=mlflow_logger,
     )
-    log_dir = os.path.join("runs", config["experiment_name"])
+    
+    log_dir = os.path.join(mlflow_logger.save_dir, mlflow_logger.experiment_id, mlflow_logger.version)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-        print(log_dir)
     file_path = os.path.join(log_dir, "config_model.yaml")
     with open(file_path, "w") as file:
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
     print(f"Fichier YAML sauvegardé dans : {file_path}")
+    
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    
     print("Fin du train")
 
 def grid_search(base_config):
     if base_config["dataset"]["metadata_filters"]["technique"][0] == "les":
-        betas = [0.0001, 0.00001, 0.000001]
-        batch_sizes = [32, 64, 128, 256]
+        betas = [0.001, 0.0001]
+        batch_sizes = [32, 64, 128]
         latent_dims = [64, 128, 256]
     else:
-        betas = [0.001, 0.0001, 0.00001, 0.000001]
-        latent_dims = [64, 128, 256, 512]
-        batch_sizes = [32, 64, 128]
+        betas = [0.001, 0.0001]
+        latent_dims = [64, 128, 256]
+        batch_sizes = [16, 32, 64]
 
     for beta, latent_dim, batch_size in itertools.product(
         betas, latent_dims, batch_sizes

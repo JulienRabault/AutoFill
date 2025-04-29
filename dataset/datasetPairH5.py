@@ -140,6 +140,9 @@ class PairHDF5Dataset(Dataset):
         data_q_les = self.data_q_les[original_idx]
         data_y_les = self.data_y_les[original_idx]
 
+        data_y_saxs_min = data_y_saxs.min()
+        data_y_saxs_max = data_y_saxs.max()
+
         # Get preprocessed metadata
         metadata = self._get_metadata(original_idx)
         metadata = {k : torch.tensor(v) for k,v in metadata.items()}
@@ -158,6 +161,7 @@ class PairHDF5Dataset(Dataset):
         
         # return data_q, data_y, metadata, self.csv_index[original_idx]
         return {"data_q_saxs": data_q_saxs.unsqueeze(0), "data_y_saxs": data_y_saxs.unsqueeze(0), 
+                "data_y_saxs_min": data_y_saxs_min, "data_y_saxs_max": data_y_saxs_max,
                 "data_q_les": data_q_les.unsqueeze(0), "data_y_les": data_y_les.unsqueeze(0),
                 "metadata": metadata, "csv_index": self.csv_index[original_idx]}
 
