@@ -54,8 +54,6 @@ def train(config):
         verbose=True,
         mode='min'
     )
-    model_ckpt = ModelCheckpoint(
-        dirpath=os.path.join("runs", config["experiment_name"]), monitor="val_loss", save_top_k=1, mode="min")
     
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
@@ -65,8 +63,6 @@ def train(config):
     )
 
     mlflow_logger = MLFlowLogger(
-        experiment_name="AUTOFILL", run_name=config["experiment_name"],
-        tracking_uri="file:runs/mlrun",
         experiment_name = "AUTOFILL", 
         run_name=config["experiment_name"],
         log_model = True,
@@ -86,8 +82,6 @@ def train(config):
         devices=config["training"]["num_gpus"] if torch.cuda.is_available() else 1,
         num_nodes=config["training"]["num_nodes"],
         max_epochs=config["training"]["num_epochs"],
-        log_every_n_steps=15,
-        callbacks=[model_ckpt, early_stopping, inference_callback, mae_callback],
         log_every_n_steps=10,
         callbacks=[early_stopping, checkpoint_callback, inference_callback, train_inference_callback, mae_callback],
         logger=mlflow_logger,
@@ -103,6 +97,6 @@ def train(config):
     
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
     
-    # mlflow.pytorch.log_model(model, "model")
+    mlflow.pytorch.log_model(model, "model")
     
     print("Fin du train")

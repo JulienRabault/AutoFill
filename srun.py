@@ -5,22 +5,17 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-mlflow_env = (
-    f"MLFLOW_TRACKING_URI=https://mlflowts.irit.fr "
-    f"MLFLOW_TRACKING_USERNAME=PNRIA208 "
-    f"MLFLOW_TRACKING_PASSWORD=p^Te85E7b# "
-)
-
 def submit_job(mode, config, tech, mat, gpu):
     print(config)
     job_name = f"{mode}_{tech}_{mat}-%j"
-    log_file2 = f"log_{mode}_tech_{tech}_mat_{mat}.err"
+    log_file = f"log_{mode}_tech_{tech}_mat_{mat}-%j.err"
+    log_file2 = f"log_{mode}_tech_{tech}_mat_{mat}-%j.out"
 
     command = [
         "sbatch",
         "--job-name", job_name,
         "--output", log_file2,
-        "--error", log_file2,
+        "--error", log_file,
         "--partition", "GPUNodes",
         "--nodes", "1",
         f"--gres=gpu:{gpu}",
@@ -28,7 +23,7 @@ def submit_job(mode, config, tech, mat, gpu):
         "--cpus-per-task", "8",
         "--gres-flags", "enforce-binding",
         "--wrap",
-        f"{mlflow_env} srun singularity exec /apps/containerCollections/CUDA12/pytorch2-NGC-24-02.sif /projects/pnria/julien/env/autofill_env/bin/python train.py --name {tech}_{mat}_gpu{gpu} --mode {mode} --config {config} --technique {tech} --material {mat} --devices {gpu}"
+        f"srun singularity exec /apps/containerCollections/CUDA12/pytorch2-NGC-24-02.sif /projects/pnria/julien/env/autofill_env/bin/python train.py --name {tech}_{mat}_gpu{gpu} --mode {mode} --config {config} --technique {tech} --material {mat} --devices {gpu}"
     ]
 
     logging.info(f"Submitting job: {job_name}")
@@ -38,11 +33,10 @@ def submit_job(mode, config, tech, mat, gpu):
     else:
         logging.error(f"Failed to submit job {job_name}: {result.stderr}")
     subprocess.run(["squeue","--me"])
-    logging.info(f"Log file: {log_file2}, Command: tail -f {log_file2}")
 
 #python3 srun.py --mode vae --config "model/VAE/vae_config_les.yaml" --mat ag --tech les
 #python3 srun.py --mode vae --config "model/VAE/vae_config_saxs.yaml" --mat ag --tech saxs
-#python3 srun.py --mode pair_vae --mat ag 
+#python3 srun.py --mode pair_vae --config "model/pair_vae2.yaml" --mat ag 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", required=True, help="Model à utiliser", choices=["vae", "pair_vae"])
