@@ -45,16 +45,16 @@ AutoFill/
    pip install -r requirements.txt
    ```
 
-   Si GPU disponible, installez PyTorch avec CUDA : consultez [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+   Si GPU disponible, installez PyTorch avec CUDA: consultez [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
 
 ## Pipeline
 
-1. **[Prétraitement CSV](#1-prétraitement-csv)** : fusion et nettoyage → metadata_clean.csv
-2. **Conversion .txt → HDF5** : séries temporelles + métadonnées → all_data.h5 + metadata_dict.json
-3. **Entraînement du modèle** : filtre, configuration YAML → lancement du training (VAE ou PairVAE)
-4. **Inference (optionnelle)** : analyse des résultats à partir des poids entraînés** : fusion et nettoyage → metadata_clean.csv
-5. **Conversion .txt → HDF5 pour PAIRVAE** : séries temporelles + métadonnées → all_data.h5 + metadata_dict.json
-6. **Entraînement du modèle PAIRVAE** : filtre, configuration YAML → lancement du training
+1. **[Prétraitement CSV](#1-prétraitement-csv-csv_pre_processpy)** : fusion et nettoyage → `metadata_clean.csv`  
+2. **[Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py)** : séries temporelles + métadonnées → `all_data.h5` + `metadata_dict.json`  
+3. **[Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5)** : filtre, configuration YAML → lancement du training VAE  
+4. **[Inference (optionnelle)](#4-inference-optionnelle)** : analyse des résultats à partir des poids entraînés  
+5. **[Conversion .txt → HDF5 (PairVAE)](#5-conversion-txt--hdf5-pour-pairvae)** : séries temporelles + métadonnées → `all_data.h5` + `metadata_dict.json`  
+6. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du training PairVAE
 
 ### 1. Prétraitement CSV
 `csv_pre_process.py`
@@ -72,11 +72,11 @@ python scripts/csv_pre_process.py \
   data/metadata_clean.csv
 ```
 
-> **Exemple** : après exécution, le fichier `data/metadata_clean.csv` contient toutes les métadonnées normalisées. Vous pourrez l’utiliser à l’étape suivante pour la conversion au format HDF5.
+> **Exemple**: après exécution, le fichier `data/metadata_clean.csv` contient toutes les métadonnées normalisées. Vous pourrez l’utiliser à l’étape suivante pour la conversion au format HDF5.
 
 ### 2. Conversion `.txt` → HDF5 avec `txtTOhdf5.py`
 
-Objectif : convertir les séries temporelles (`.txt`) et le CSV de métadonnées en un unique fichier HDF5.
+Objectif: convertir les séries temporelles (`.txt`) et le CSV de métadonnées en un unique fichier HDF5.
 
 Arguments:
 * `--data_csv_path` : chemin vers le fichier CSV de métadonnées (doit contenir au moins une colonne path vers les fichiers .txt).
@@ -94,7 +94,7 @@ python scripts/txtTOhdf5.py \
   --pad_size 900
 ```
 
-> **Exemple** : en sortie, `data/all_data.h5` contient `data_q`, `data_y`, `len`, `csv_index` et toutes les métadonnées, et `data/metadata_dict.json` recense les encodages catégoriels. Vous utiliserez ces deux fichiers pour l’entraînement.
+> **Exemple**: en sortie, `data/all_data.h5` contient `data_q`, `data_y`, `len`, `csv_index` et toutes les métadonnées, et `data/metadata_dict.json` recense les encodages catégoriels. Vous utiliserez ces deux fichiers pour l’entraînement.
 
 **Structure HDF5 générée :**
 
@@ -109,7 +109,7 @@ final_output.h5
 └── ...            [N]
 ```
 
-> **Note :** `data_q` et `data_y` sont les séries temporelles et `csv_index` est l’index du CSV d’origine. Les colonnes de métadonnées sont ajoutées à la fin.
+> **Note:** `data_q` et `data_y` sont les séries temporelles et `csv_index` est l’index du CSV d’origine. Les colonnes de métadonnées sont ajoutées à la fin.
 
 **Attention aux chemins (path) dans le CSV :**
 
@@ -129,7 +129,7 @@ Ce script vérifiera que chaque chemin dans la colonne path (colonne contenant `
 
 ### 3. Entraînement du modèle à partir du fichier HDF5 `train.py`
 
-Une fois le HDF5 et le JSON générés, lancez l’entraînement :
+Une fois le HDF5 et le JSON générés, lancez l’entraînement:
 
 ```bash
 python scripts/train.py \
@@ -143,7 +143,7 @@ python scripts/train.py \
   --material ag
 ```
 
-> **Exemple** : ici `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés sur `technique=saxs` et `material=ag`.
+> **Exemple**: ici `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés sur `technique=saxs` et `material=ag`.
 
 ### Paramètres minimum modifiables dans le YAML (config_vae.yml)
 
@@ -174,7 +174,7 @@ python scripts/train.py \
 
 ### 5. Entraînement du modèle PAIRVAE à partir du fichier HDF5 `train.py`
 
-De la même manière que pour le VAE, vous pouvez convertir vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `pairtxtTOhdf5.py` est conçu pour cela.
+De la même manière que [Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py), vous pouvez convertir vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `pairtxtTOhdf5.py` est conçu pour cela.
 
 Arguments :
 
@@ -211,7 +211,7 @@ Une fois la conversion terminée, vous obtenez :
 
 ### 6. Entraînement du modèle PAIRVAE
 
-L’entraînement du PairVAE se fait de la même manière que pour le VAE, mais avec un fichier HDF5 différent et une configuration YAML différente.
+L’entraînement du PairVAE se fait de la même manière que [Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5), mais avec un fichier HDF5 différent et une configuration YAML différente.
 
 Lancez l’entraînement en mode pairvae avec votre template `config_pairvae.yml` :
 
