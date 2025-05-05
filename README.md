@@ -5,7 +5,6 @@
 - [ ] Expliquer la sorti des train, poids + analyse de courbe 
 - [ ] Bouger les fichiers/dossier
 - [ ] Renforcer les explications sur le fonctionnement du pairVAE ?
-- [ ] Essayer de faire les lien dans le "sommaire"
 
 ### Auteurs : 
 - **Julien Rabault** (julien.rabault@irit.fr)
@@ -104,9 +103,9 @@ final_output.h5
 ├── data_y          [N, pad_size]
 ├── len             [N]
 ├── csv_index       [N]
-├── <metadata_1>   [N]
-├── <metadata_2>   [N]
-└── ...            [N]
+├── <metadata_1>    [N]
+├── <metadata_2>    [N]
+└── ...             [N]
 ```
 
 > **Note:** `data_q` et `data_y` sont les séries temporelles et `csv_index` est l’index du CSV d’origine. Les colonnes de métadonnées sont ajoutées à la fin.
@@ -116,7 +115,7 @@ final_output.h5
 Les chemins indiqués dans la colonne path du CSV doivent être relatifs au répertoire --data_dir. Le script les concatène pour localiser les fichiers `.txt`. Toute incohérence entraînera des erreurs ou des fichiers ignorés.
 Avant de lancer la conversion, vous pouvez utiliser `saminitycheck.py` pour valider que tous les fichiers .txt référencés dans le CSV existent réellement dans le répertoire `--data_dir`.
 
-**Exécutez le script comme suit :**
+**Exécutez le script `saminitycheck.py` :**
 
 ```bash
 python scripts/saminitycheck.py \
@@ -124,7 +123,7 @@ python scripts/saminitycheck.py \
   --basedir data/txt/
 ```
 
-Ce script vérifiera que chaque chemin dans la colonne path (colonne contenant `"path"` dans son nom) du CSV correspond à un fichier existant dans le répertoire --basedir. Si des fichiers manquent, ils seront listés.
+Ce script vérifiera que chaque chemin dans la colonne path (colonne contenant `"path"` dans son nom) du CSV correspond à un fichier existant dans le répertoire `--basedir`. Si des fichiers manquent, ils seront listés.
 
 
 ### 3. Entraînement du modèle à partir du fichier HDF5 `train.py`
@@ -147,9 +146,9 @@ python scripts/train.py \
 
 ### Paramètres minimum modifiables dans le YAML (config_vae.yml)
 
-* `experiment_name` : nom de l’expérience (création de sous-dossier dans logdir).
-* `logdir` : dossier où seront stockés logs et checkpoints.
-* `dataset`
+* **`experiment_name`** : nom de l’expérience (création de sous-dossier dans logdir).
+* **`logdir`** : dossier où seront stockés logs et checkpoints.
+* **`dataset`**
 
   * `hdf5_file` : chemin vers votre fichier `.h5`.
   * `conversion_dict_path` : chemin vers le JSON de mapping.
@@ -165,9 +164,9 @@ python scripts/train.py \
   * `num_workers` : nombre de workers DataLoader. (Nombre de cpu disponible)
   * `max_lr`, `T_max`, `eta_min` : planning de taux d’apprentissage.
   * `beta` : coefficient β du VAE. 
-* **model.args**
+* **`model.args`**
   * `input_dim` : doit être égal à pad_size.
-> **Note :** en dehors de ces clés, tout autre paramètre dans le YAML n’est pas nécessairement safe à modifier si vous débutez en IA. Respectez surtout la cohérence pad_size / input_dim et les chemins d’accès pour éviter les erreurs.
+> **Note :** en dehors de ces clefs, tout autre paramètre dans le YAML n’est pas nécessairement safe à modifier si vous débutez en IA. Respectez surtout la cohérence pad_size / input_dim et les chemins d’accès pour éviter les erreurs.
 
 ### 4. Inference (optionnelle)
 ...
