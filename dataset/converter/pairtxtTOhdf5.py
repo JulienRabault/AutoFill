@@ -200,3 +200,29 @@ class PairTextToHDF5Converter:
 
         print("Conversion terminée, dictionnaire sauvegardé.")
 
+
+import argparse
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Convert CSV metadata and text data to HDF5 format.")
+    parser.add_argument("--data_csv_path", type=str, required=True, help="Path to CSV metadata file.")
+    parser.add_argument("--data_dir", type=str, required=True, help="Base directory where text files are located.")
+    parser.add_argument("--pad_size", type=int, default=500, help="Padding size for time series.")
+    parser.add_argument("--final_output_file", type=str, default="data.h5", help="Output HDF5 file path.")
+    parser.add_argument("--json_output", type=str, default="data.json", help="Path to output JSON dictionary.")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.data_csv_path):
+        raise FileNotFoundError(f"CSV file not found: {args.data_csv_path}")
+
+    dataframe = pd.read_csv(args.data_csv_path)
+    converter = PairTextToHDF5Converter(
+        dataframe=dataframe,
+        data_dir=args.data_dir,
+        output_dir=os.path.dirname(args.final_output_file),
+        final_output_file=os.path.basename(args.final_output_file),
+        json_output=args.json_output,
+        pad_size=args.pad_size
+    )
+    converter.convert()
+    print(f"Data successfully converted to {os.path.abspath(args.final_output_file)}")

@@ -1,9 +1,10 @@
-
+import argparse
 import os
 import json
 import pandas as pd
 import numpy as np
 import h5py
+from pygments.lexer import default
 from tqdm import tqdm
 import warnings
 import math
@@ -187,17 +188,25 @@ class TextToHDF5Converter:
 
 
 if __name__ == "__main__":
-    data_csv_path = "/projects/pnria/DATA/AUTOFILL/v2/all_data_v2.csv"
+    parser = argparse.ArgumentParser(description="Convert CSV metadata and text data to HDF5 format.")
+    parser.add_argument("--data_csv_path", type=str, required=True, help="Path to CSV metadata file.")
+    parser.add_argument("--data_dir", type=str, required=True, help="Base directory where text files are located.")
+    parser.add_argument("--pad_size", type=int, default=500, help="Padding size for time series.")
+    parser.add_argument("--final_output_file", default="data.h5", type=str, required=True, help="Output HDF5 file path.")
+    parser.add_argument("--json_output", default="data.json", type=str, required=True, help="Path to output JSON dictionary.")
+    args = parser.parse_args()
 
-    if not os.path.exists(data_csv_path):
-        raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
+    if not os.path.exists(args.data_csv_path):
+        raise FileNotFoundError(f"CSV file not found: {args.data_csv_path}")
 
-    dataframe = pd.read_csv(data_csv_path)
-    data_dir = '/projects/pnria/DATA/AUTOFILL/'
-    final_output_file = '/projects/pnria/DATA/AUTOFILL/v2/all_data_v2.h5'
-    json_output = '/projects/pnria/DATA/AUTOFILL/v2/all_data_v2.json'
-    print(dataframe.columns)
-    print(dataframe.head())
-    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file, json_output=json_output, pad_size=900)
+    dataframe = pd.read_csv(args.data_csv_path)
+    converter = TextToHDF5Converter(
+        dataframe=dataframe,
+        data_dir=args.data_dir,
+        output_dir=os.path.dirname(args.final_output_file),
+        final_output_file=os.path.basename(args.final_output_file),
+        json_output=args.json_output,
+        pad_size=args.pad_size
+    )
     converter.convert()
-    print(f"Data successfully converted to {final_output_file}")
+    print(f"Data successfully converted to {args.final_output_file}")

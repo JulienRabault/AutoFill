@@ -9,24 +9,32 @@ parser.add_argument("--basedir", type=str, default="/projects/pnria/DATA/AUTOFIL
 args = parser.parse_args()
 
 df = pd.read_csv(args.csv)
-for el in df.columns:
-    if 'path' in el:
-        df = df.rename(columns={el: 'path'})
-print(df.columns)
-df['path'] = df['path'].apply(lambda p: Path(str(p).replace('\\', '/')).as_posix())
-
 base = Path(args.basedir)
-missing = []
-print()
-print(f"Répertoire de base : {base}")
-print(f"Nombre de fichiers à vérifier : {len(df)}")
-print(f"Fichiers à vérifier : {df['path'].tolist()[:5]}...")
-for rel_path in tqdm(df['path'], desc="Vérification des fichiers"):
-    rel_path = rel_path.lstrip("/")
-    full_path = base / rel_path
-    if not full_path.exists():
-        print(f"Fichier manquant : {full_path}")
-        missing.append(rel_path)
 
+path_cols = [col for col in df.columns if 'path' in col.lower()]
+print(f"Colonnes contenant 'path' : {path_cols}")
 
-print(f"\nFichiers manquants : {len(missing)} / {len(df)}")
+missing_per_column = {}
+
+for col in path_cols:
+    print()
+    print(f"--- Vérification pour la colonne : {col} ---")
+    paths = df[col].astype(str).apply(lambda p: Path(p.replace('\\', '/')).as_posix())
+    missing = []
+
+    print(f"Nombre de fichiers à vérifier : {len(paths)}")
+    print(f"Fichiers à vérifier (extrait) : {paths.tolist()[:5]}...")
+
+    for rel_path in tqdm(paths, desc=f"Vérification ({col})"):
+        rel_path = rel_path.lstrip("/")
+        full_path = base / rel_path
+        if not full_path.exists():
+            print(f"Fichier manquant : {full_path}")
+            missing.append(rel_path)
+
+    missing_per_column[col] = missing
+    print(f"Fichiers manquants pour {col} : {len(missing)} / {len(paths)}")
+
+print("\n--- Résumé global ---")
+for col, missing in missing_per_column.items():
+    print(f"{col}: {len(missing)} fichiers manquants")
