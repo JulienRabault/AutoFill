@@ -53,11 +53,12 @@ def train(config):
         mode='min'
     )
 
+    mlflow_logdir = config["logdir"]
     mlflow_logger = MLFlowLogger(
         experiment_name = "AUTOFILL", 
         run_name=config["experiment_name"],
         log_model = True,
-        tracking_uri = "file:/projects/pnria/caroline/pairvae/mlrun",
+        tracking_uri = f"file:{mlflow_logdir}/mlrun",
     )
     mlflow_logger.log_hyperparams(config)
 
@@ -66,12 +67,11 @@ def train(config):
         save_top_k=1,
         mode="min",
         every_n_epochs=1,
-        #dirpath= os.path.join(mlflow_logger.save_dir, mlflow_logger.experiment_id, mlflow_logger.version)
     )
 
     use_loglog = config["training"]["use_loglog"]
-    inference_callback = InferencePlotCallback(val_loader, artifact_file = "val_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
-    train_inference_callback = InferencePlotCallback(train_loader, artifact_file = "train_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
+    inference_callback = InferencePlotCallback(val_loader, artifact_file = "val_plot.png", use_loglog=use_loglog)
+    train_inference_callback = InferencePlotCallback(train_loader, artifact_file = "train_plot.png", use_loglog=use_loglog)
         
     trainer = pl.Trainer(
         strategy='ddp' if torch.cuda.device_count() > 1 else "auto",
@@ -91,7 +91,6 @@ def train(config):
     with open(file_path, "w") as file:
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
     print(f"Fichier YAML sauvegardé dans : {file_path}")
-
 
     # Extraction des indices
     train_indices = train_dataset.indices

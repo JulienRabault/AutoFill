@@ -1,4 +1,5 @@
 experiment_name: "AUTOFILL_SAXS_VAE_GRID"
+logdir: logs_saxs
 dataset :
   hdf5_file: "/projects/pnria/DATA/AUTOFILL/v2/all_data_saxs_v2.h5"
   metadata_filters :
