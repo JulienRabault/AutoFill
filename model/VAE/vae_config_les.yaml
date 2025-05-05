@@ -1,4 +1,5 @@
 experiment_name: "test_julien"
+logdir: logs_les
 dataset :
   hdf5_file: "/projects/pnria/DATA/AUTOFILL/v2/all_data_les_v2.h5"
   metadata_filters :

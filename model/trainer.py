@@ -54,20 +54,21 @@ def train(config) :
         monitor="val_loss",
         save_top_k=1,
         mode="min",
-        every_n_epochs=5,
+        every_n_epochs=1,
     )
 
+    mlflow_logdir = config["logdir"]
     mlflow_logger = MLFlowLogger(
         experiment_name = "AUTOFILL", 
         run_name=config["experiment_name"],
         log_model = True,
-        tracking_uri = "file:runs/mlrun",
+        tracking_uri = f"file:{mlflow_logdir}/mlrun",
     )
     mlflow_logger.log_hyperparams(config)
 
     use_loglog = config["training"]["use_loglog"]
-    inference_callback = InferencePlotCallback(val_loader, artifact_file = "val_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
-    train_inference_callback = InferencePlotCallback(train_loader, artifact_file = "train_plot.png", output_dir=os.path.join("runs", config["experiment_name"]), use_loglog=use_loglog)
+    inference_callback = InferencePlotCallback(val_loader, artifact_file = "val_plot.png", use_loglog=use_loglog)
+    train_inference_callback = InferencePlotCallback(train_loader, artifact_file = "train_plot.png", use_loglog=use_loglog)
         
     trainer = pl.Trainer(
         strategy='ddp' if torch.cuda.device_count() > 1 else "auto",
