@@ -7,7 +7,7 @@
 - [ ] Renforcer les explications sur le fonctionnement du pairVAE ?
 - [ ] Essayer de faire les lien dans le "sommaire"
 
-### Auteur : 
+### Auteurs : 
 - **Julien Rabault** (julien.rabault@irit.fr)
 - **Caroline De Pourtales** (caroline.de-pourtales@irit.fr)
 
@@ -59,7 +59,7 @@ AutoFill/
 ### 1. Prétraitement CSV
 `csv_pre_process.py`
 
-Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées.
+Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées. Cette convertion tourne sur CPU et demande beaucoup de ressource pour aller vite. Utiliser `tmux` pour lancer le script en arrière plan. Par exemple pour 1.5M de `.txt` cela prend environ 10h.
 
 **Arguments:**
 
@@ -111,8 +111,8 @@ final_output.h5
 
 **Attention aux chemins (path) dans le CSV :**
 
-Les chemins indiqués dans la colonne path du CSV doivent être relatifs au répertoire --data_dir. Le script les concatène pour localiser les fichiers .txt. Toute incohérence entraînera des erreurs ou des fichiers ignorés.
-Avant de lancer la conversion, vous pouvez utiliser saminitycheck.py pour valider que tous les fichiers .txt référencés dans le CSV existent réellement dans le répertoire --data_dir.
+Les chemins indiqués dans la colonne path du CSV doivent être relatifs au répertoire --data_dir. Le script les concatène pour localiser les fichiers `.txt`. Toute incohérence entraînera des erreurs ou des fichiers ignorés.
+Avant de lancer la conversion, vous pouvez utiliser `saminitycheck.py` pour valider que tous les fichiers .txt référencés dans le CSV existent réellement dans le répertoire `--data_dir`.
 
 **Exécutez le script comme suit :**
 
@@ -149,7 +149,7 @@ python scripts/train.py \
 * `logdir` : dossier où seront stockés logs et checkpoints.
 * `dataset`
 
-  * `hdf5_file` : chemin vers votre fichier .h5.
+  * `hdf5_file` : chemin vers votre fichier `.h5`.
   * `conversion_dict_path` : chemin vers le JSON de mapping.
   * `metadata_filters` : filtres à appliquer sur les métadonnées (ex. material, technique, type, shape).
   * `sample_frac` : fraction d’échantillonnage (entre 0.0 et 1.0).
@@ -160,15 +160,11 @@ python scripts/train.py \
 
   * `num_epochs` : nombre d’époques maximales.
   * `batch_size` : taille de batch.
-  * `num_workers` : nombre de workers DataLoader.
+  * `num_workers` : nombre de workers DataLoader. (Nombre de cpu disponible)
   * `max_lr`, `T_max`, `eta_min` : planning de taux d’apprentissage.
-  * `beta` : coefficient β du VAE.
+  * `beta` : coefficient β du VAE. 
 * **model.args**
-
-  * `latent_dim` : dimension latente.
   * `input_dim` : doit être égal à pad_size.
-  * `down_channels`/`up_channels` : architecture, à conserver sauf si confortable avec PyTorch.
-
 > **Note :** en dehors de ces clés, tout autre paramètre dans le YAML n’est pas nécessairement safe à modifier si vous débutez en IA. Respectez surtout la cohérence pad_size / input_dim et les chemins d’accès pour éviter les erreurs.
 
 ### 4. Inference (optionnelle)
@@ -228,6 +224,8 @@ python scripts/train.py \
   --technique saxs \
   --material ag
 ```
+
+Dans cette exmple `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés sur `technique=saxs` et `material=ag`.
 
 ### Contact
 
