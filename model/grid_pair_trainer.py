@@ -92,7 +92,6 @@ def train(config):
         yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
     print(f"Fichier YAML sauvegardé dans : {file_path}")
 
-
     # Extraction des indices
     train_indices = train_dataset.indices
     val_indices = val_dataset.indices

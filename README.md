@@ -81,6 +81,7 @@ model:
     
 ### Launching
 
+**Normal Trainer mode**
 - If you have OCCIDATA, you can : 
 $python3 srun.py --mode vae --config "model/VAE/vae_config_les.yaml" --mat ag --tech les
 $python3 srun.py --mode vae --config "model/VAE/vae_config_saxs.yaml" --mat ag --tech saxs
@@ -92,6 +93,9 @@ where config if the path to the yaml config, technique is saxs or les ...
 
 - you can also simply use the train function in model/VAE/trainer.py with the correct config.
   
+**Grid Search Training**
+
+With grid search training, we want to find the best hyperparameters for our model.
   
 ## For Pair VAE
 
@@ -118,3 +122,8 @@ You can use 'plot_result_vae.ipynb' notebook. Modify path_config and path_checkp
 
 You can use 'plot_result_pairvae.ipynb' notebook. Modify path_config and path_checkpoints with your trained model.
 
+# Export results
+
+## For VAE
+
+## For Pair VAE

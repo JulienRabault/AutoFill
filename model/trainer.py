@@ -100,6 +100,6 @@ def train(config) :
     
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
     
-    mlflow.pytorch.log_model(model, "model")
+    #mlflow.pytorch.log_model(model, "model")
 
   
