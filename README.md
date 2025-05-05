@@ -104,10 +104,12 @@ final_output.h5
 ├── data_y          [N, pad_size]
 ├── len             [N]
 ├── csv_index       [N]
-├── metadata_field1 [N]
-├── metadata_field2 [N]
-...
+├── <metadata_1>   [N]
+├── <metadata_2>   [N]
+└── ...            [N]
 ```
+
+> **Note :** `data_q` et `data_y` sont les séries temporelles et `csv_index` est l’index du CSV d’origine. Les colonnes de métadonnées sont ajoutées à la fin.
 
 **Attention aux chemins (path) dans le CSV :**
 
