@@ -135,8 +135,7 @@ Une fois le HDF5 et le JSON générés, lancez l’entraînement:
 ```bash
 python scripts/03_train.py \
   --mode vae \
-  --gridsearch off \
-  --config model/VAE/config/vae.yml \
+  --config config/vae.yaml \
   --name AUTOFILL_SAXS_VAE \
   --hdf5_file data/all_data.h5 \
   --conversion_dict_path data/metadata_dict.json \

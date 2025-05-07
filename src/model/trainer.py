@@ -34,7 +34,6 @@ class TrainPipeline:
         common_cfg = {
             'num_samples': self.config['training'].get('num_samples', 4),
             'every_n_epochs': self.config['training'].get('every_n_epochs', 10),
-            'use_loglog': self.config['training']['use_loglog'],
             'artifact_file': 'val_plot.png'
         }
         callbacks = []
@@ -48,7 +47,7 @@ class TrainPipeline:
         elif model_type.lower() == 'vae':
             model = PlVAE(self.config)
             dataset = HDF5Dataset(**self.config['dataset'])
-            curves_config = {'recon': {'truth_key': 'data_y', 'pred_keys': None,
+            curves_config = {'recon': {'truth_key': 'data_y', 'pred_keys': ["recon"],
                                        'use_loglog': self.config['training']['use_loglog']}}
             callbacks.append(MAEMetricCallback())
         else:

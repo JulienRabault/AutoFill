@@ -31,8 +31,8 @@ class InferencePlotCallback(pl.Callback):
             num_samples: int = 4,
             every_n_epochs: int = 10,
     ) -> None:
-        self._check_config()
         self.curves_config = curves_config
+        self._check_config()
         self.artifact_file = artifact_file
         self.output_dir = output_dir
         self.num_samples = num_samples
@@ -51,11 +51,14 @@ class InferencePlotCallback(pl.Callback):
             if 'truth_key' not in cfg or 'pred_keys' not in cfg:
                 raise ValueError(f"Configuration for {name} must contain 'truth_key' and 'pred_keys'")
             if not isinstance(cfg['pred_keys'], list):
-                raise ValueError(f"'pred_keys' for {name} must be a list")
+                try :
+                    cfg['pred_keys'] = list(cfg['pred_keys'])
+                except:
+                    raise ValueError(f"'pred_keys' for {name} must be a list")
 
     def _infer_and_plot(self, trainer: pl.Trainer, model: pl.LightningModule) -> None:
         model.eval()
-        dataloader = trainer.datamodule.val_dataloader()
+        dataloader = trainer.val_dataloaders
         device = model.device
         batch = next(iter(dataloader))
         batch = move_to_device(batch, device)

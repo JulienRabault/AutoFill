@@ -19,16 +19,16 @@ def move_to_device(batch, device):
 class MAEMetricCallback(pl.Callback):
     """Callback to compute and log MAE for each artifact with 'recon' in its key on validation set."""
 
-    def __init__(self, val_dataloader):
-        self.val_dataloader = val_dataloader
+    def __init__(self):
         self.mae_loss = nn.L1Loss()
         self.best_mae = {}  # Stores best MAE for each recon key
 
     def on_validation_epoch_end(self, trainer, pl_module):
         mae_dict = {}
         pl_module.eval()
+        val_dataloader = trainer.val_dataloaders
         with torch.no_grad():
-            for batch in self.val_dataloader:
+            for batch in val_dataloader:
                 batch = move_to_device(batch, pl_module.device)
                 data_y = batch["data_y"]
                 inputs = data_y.squeeze(1)
