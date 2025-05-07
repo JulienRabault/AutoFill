@@ -1,7 +1,7 @@
 # Toolbox VAE/PairVAE
 
 # TODO :
-- [ ] Faire l'inference => utiliser les modeles
+- [x] Faire l'inference => utiliser les modeles
 - [ ] Expliquer la sorti des train, poids + analyse de courbe 
 - [x] Bouger les fichiers/dossier
 - [ ] Renforcer les explications sur le fonctionnement du pairVAE ?
