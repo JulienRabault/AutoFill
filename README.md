@@ -3,7 +3,7 @@
 # TODO :
 - [ ] Faire l'inference => utiliser les modeles
 - [ ] Expliquer la sorti des train, poids + analyse de courbe 
-- [ ] Bouger les fichiers/dossier
+- [x] Bouger les fichiers/dossier
 - [ ] Renforcer les explications sur le fonctionnement du pairVAE ?
 
 ### Auteurs : 
@@ -14,11 +14,13 @@
 
 ```
 AutoFill/
-├─ dataset/             # code de gestion des données
-├─ model/               # architectures et utilitaires d'entraînement
-├─ scripts/             # pipeline CLI : prétraitement, conversion, entraînement
-├─ config_vae.yml       # template config pour VAE (modifiable)
-├─ config_pairvae.yml   # template config pour PairVAE (modifiable)
+├─ src/
+│  ├─ dataset/          # gestion des données
+│  ├─ model/            # architectures et entraînement
+│  └─ scripts/          # pipeline CLI : prétraitement, conversion, entraînement
+├─ configs/             
+│  ├─ vae.yml           # config pour VAE
+│  └─ pairvae.yml       # config pour PairVAE
 ├─ requirements.txt     # dépendances
 └─ README.md            # guide d’utilisation
 ```
@@ -56,7 +58,7 @@ AutoFill/
 6. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du training PairVAE
 
 ### 1. Prétraitement CSV
-`csv_pre_process.py`
+`01_csv_pre_process.py`
 
 Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées. Cette convertion tourne sur CPU et demande beaucoup de ressource pour aller vite. Utiliser `tmux` pour lancer le script en arrière plan. Par exemple pour 1.5M de `.txt` cela prend environ 10h.
 
@@ -66,14 +68,14 @@ Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées. Cette con
 - `<output>` : chemin du fichier CSV nettoyé de sortie (séparateur ,).
 
 ```bash
-python scripts/csv_pre_process.py \
+python scripts/01_csv_pre_process.py \
   data/raw_csv/file1.csv data/raw_csv/file2.csv \
   data/metadata_clean.csv
 ```
 
 > **Exemple**: après exécution, le fichier `data/metadata_clean.csv` contient toutes les métadonnées normalisées. Vous pourrez l’utiliser à l’étape suivante pour la conversion au format HDF5.
 
-### 2. Conversion `.txt` → HDF5 avec `txtTOhdf5.py`
+### 2. Conversion `.txt` → HDF5 avec `02_txtTOhdf5.py`
 
 Objectif: convertir les séries temporelles (`.txt`) et le CSV de métadonnées en un unique fichier HDF5.
 
@@ -85,7 +87,7 @@ Arguments:
 * `--pad_size` : longueur maximale des séries temporelles (padding ou troncature appliqué si nécessaire). Default : 500.
 
 ```bash
-python scripts/txtTOhdf5.py \
+python scripts/02_txtTOhdf5.py \
   --data_csv_path data/metadata_clean.csv \
   --data_dir data/txt/ \
   --final_output_file data/all_data.h5 \
@@ -126,15 +128,15 @@ python scripts/saminitycheck.py \
 Ce script vérifiera que chaque chemin dans la colonne path (colonne contenant `"path"` dans son nom) du CSV correspond à un fichier existant dans le répertoire `--basedir`. Si des fichiers manquent, ils seront listés.
 
 
-### 3. Entraînement du modèle à partir du fichier HDF5 `train.py`
+### 3. Entraînement du modèle à partir du fichier HDF5 `03_train.py`
 
 Une fois le HDF5 et le JSON générés, lancez l’entraînement:
 
 ```bash
-python scripts/train.py \
+python scripts/03_train.py \
   --mode vae \
   --gridsearch off \
-  --config model/VAE/config_vae.yml \
+  --config model/VAE/config/vae.yml \
   --name AUTOFILL_SAXS_VAE \
   --hdf5_file data/all_data.h5 \
   --conversion_dict_path data/metadata_dict.json \
@@ -144,7 +146,7 @@ python scripts/train.py \
 
 > **Exemple**: ici `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés sur `technique=saxs` et `material=ag`.
 
-### Paramètres minimum modifiables dans le YAML (config_vae.yml)
+### Paramètres minimum modifiables dans le YAML (config/vae.yml)
 
 * **`experiment_name`** : nom de l’expérience (création de sous-dossier dans logdir).
 * **`logdir`** : dossier où seront stockés logs et checkpoints.
@@ -171,14 +173,14 @@ python scripts/train.py \
 ### 4. Inference (optionnelle)
 ...
 
-### 5. Entraînement du modèle PAIRVAE à partir du fichier HDF5 `train.py`
+### 5. Entraînement du modèle PAIRVAE à partir du fichier HDF5 `03_train.py`
 
-De la même manière que [Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py), vous pouvez convertir vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `pairtxtTOhdf5.py` est conçu pour cela.
+De la même manière que [Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py), vous pouvez convertir vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `05_pair_txtTOhdf5.py` est conçu pour cela.
 
 Arguments :
 
 ```bash
-python scripts/pairtxtTOhdf5.py \
+python scripts/05_pair_txtTOhdf5.py \
   --data_csv_path   data/metadata_clean.csv  \
   --data_dir        data/txt/               \
   --pad_size        900                     \
@@ -212,13 +214,13 @@ Une fois la conversion terminée, vous obtenez :
 
 L’entraînement du PairVAE se fait de la même manière que [Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5), mais avec un fichier HDF5 différent et une configuration YAML différente.
 
-Lancez l’entraînement en mode pairvae avec votre template `config_pairvae.yml` :
+Lancez l’entraînement en mode pairvae avec votre template `config/pairvae.yml` :
 
 ```bash
-python scripts/train.py \
+python scripts/03_train.py \
   --mode pairvae \
   --gridsearch off \
-  --config model/PairVAE/config_pairvae.yml \
+  --config model/PairVAE/config/pairvae.yml \
   --name AUTOFILL_SAXS_PAIRVAE \
   --hdf5_file data/all_data.h5 \
   --conversion_dict_path data/metadata_dict.json \

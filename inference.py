@@ -1,71 +1,108 @@
+import argparse
 import os
 import yaml
 import torch
-import argparse
-import logging
-import lightning.pytorch as pl
-from model.VAE.pl_VAE import PlVAE
-from dataset.datasetH5 import HDF5Dataset
+from torch.utils.data import DataLoader
+import numpy as np
+from tqdm import tqdm
 
-def setup_logger():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.StreamHandler()]
-    )
+from src.dataset.datasetH5 import HDF5Dataset
+from src.dataset.datasetPairH5 import PairHDF5Dataset
+from src.model.vae.pl_vae import PlVAE
+from src.model.pairvae.pl_pairvae import PlPairVAE
 
-def inference(config):
-    """
-    Perform inference on 4 samples using a trained PlVAE model.
-    """
-    logger = logging.getLogger(__name__)
-    ckpt_path = "/projects/pnria/julien/autofill/runs/grid_ag_saxs_beta0.001_etamin1e-06_ld64_bs128/epoch=46-step=15369.ckpt"
-    if not os.path.exists(ckpt_path):
-        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
-    logger.info(f"Loading model from checkpoint: {ckpt_path}")
-    model = PlVAE.load_from_checkpoint(ckpt_path, config=config)
-    model.eval()
+class BaseInferenceRunner:
+    def __init__(self, config, checkpoint_path, device):
+        self.config = config
+        self.checkpoint_path = checkpoint_path
+        self.device = device
+        self.output_dir = config.get("output_dir", "inference_outputs")
+        os.makedirs(self.output_dir, exist_ok=True)
+        self.model = self._load_model()
+        self.model.to(self.device)
+        self.model.eval()
 
-    logger.info("Initializing dataset...")
-    dataset = HDF5Dataset(
-        hdf5_file=config["dataset"]["hdf5_file"],
-        metadata_filters=config["dataset"]["metadata_filters"],
-        conversion_dict_path=config["dataset"]["conversion_dict_path"],
-        sample_frac=config["dataset"]["sample_frac"],
-        transform=config["dataset"]["transform"],
-        requested_metadata=config["dataset"]["requested_metadata"],
-    )
+    def _load_model(self):
+        raise NotImplementedError
 
-    indices = [0, 1, 2, 3]
-    logger.info(f"Sampling indices: {indices}")
-    samples = [dataset[i] for i in indices]
+    def _build_dataloader(self):
+        raise NotImplementedError
 
-    batch = {
-        "data_q": torch.cat([s["data_q"] for s in samples], dim=0),
-        "data_y": torch.cat([s["data_y"] for s in samples], dim=0),
-        "metadata": [s["metadata"] for s in samples]
-    }
+    def _save(self, array, name):
+        path = os.path.join(self.output_dir, f"{name}.npy")
+        np.save(path, array)
 
+    def run(self):
+        loader = self._build_dataloader()
+        preds = self._infer(loader)
+        for key, arr in preds.items():
+            self._save(arr, key)
+
+    def _infer(self, loader):
+        raise NotImplementedError
+
+class VAEInferenceRunner(BaseInferenceRunner):
+    def _load_model(self):
+        return PlVAE.load_from_checkpoint(self.checkpoint_path, hparams_file=self.config_path)
+
+    def _build_dataloader(self):
+        ds = HDF5Dataset(
+            self.config["data"]["test_hdf5"],
+            transform=self.config["data"].get("transform", {})
+        )
+        return DataLoader(ds, batch_size=self.config.get("batch_size", 1), shuffle=False)
+
+    def _infer(self, loader):
+        result = []
+        with torch.no_grad():
+            for x in tqdm(loader, desc="VAE Inference"):
+                x = x.to(self.device)
+                out = self.model(x)
+                tensor = out[0] if isinstance(out, (list, tuple)) else out
+                result.append(tensor.cpu().numpy())
+        return {"reconstruction": np.concatenate(result, axis=0)}
+
+class PairVAEInferenceRunner(BaseInferenceRunner):
+    def _load_model(self):
+        return PlPairVAE.load_from_checkpoint(self.checkpoint_path, hparams_file=self.config_path)
+
+    def _build_dataloader(self):
+        cfg = self.config["data"]
+        ds = PairHDF5Dataset(
+            hdf5_file_1=cfg["test_hdf5_1"],
+            hdf5_file_2=cfg["test_hdf5_2"],
+            conversion_dict_path=cfg["conversion_dict_path"],
+            transform=cfg.get("transform", {})
+        )
+        return DataLoader(ds, batch_size=self.config.get("batch_size", 1), shuffle=False)
+
+    def _infer(self, loader):
+        preds = {"recon_saxs": [], "recon_les": [], "recon_saxs2les": [], "recon_les2saxs": []}
+        with torch.no_grad():
+            for batch in tqdm(loader, desc="PairVAE Inference"):
+                for k in batch:
+                    batch[k] = batch[k].to(self.device)
+                out = self.model(batch)
+                for key in preds:
+                    preds[key].append(out[key].cpu().numpy())
+        return {k: np.concatenate(v, axis=0) for k, v in preds.items()}
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--config", type=str, required=True)
+    p.add_argument("--checkpoint", type=str, required=True)
+    return p.parse_args()
+
+def main():
+    args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    batch["data_q"] = batch["data_q"].to(device)
-    batch["data_y"] = batch["data_y"].to(device)
-
-    logger.info(f"Running inference on batch of size {len(samples)}...")
-    with torch.no_grad():
-        outputs = model(batch)
-
-    logger.info("Inference completed.")
-    for i, sample in enumerate(samples):
-        logger.info(f"Sample {i} | CSV Index: {sample['csv_index']} | Length: {sample['len']}")
-        logger.info(f"Metadata: {sample['metadata']}")
-        logger.info(f"Output: {outputs[i].cpu()}")
+    with open(args.config, "r") as f:
+        config = yaml.safe_load(f)
+    model_type = config["model"]["type"]
+    runner_cls = VAEInferenceRunner if model_type == "VAE" else PairVAEInferenceRunner
+    runner = runner_cls(config, args.checkpoint, device)
+    runner.config_path = args.config
+    runner.run()
 
 if __name__ == "__main__":
-    setup_logger()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="config.yaml", help="Path to configuration file")
-    args = parser.parse_args()
-    with open(args.config, "r") as file:
-        config = yaml.safe_load(file)
-    inference(config)
+    main()

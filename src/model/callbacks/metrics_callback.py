@@ -1,6 +1,7 @@
 import lightning.pytorch as pl
-import torch.nn as nn
 import torch
+import torch.nn as nn
+
 
 def move_to_device(batch, device):
     if isinstance(batch, torch.Tensor):
@@ -14,18 +15,20 @@ def move_to_device(batch, device):
     else:
         return batch
 
+
 class MAEMetricCallback(pl.Callback):
     """Callback to compute and log MAE for each artifact with 'recon' in its key on validation set."""
-    def __init__(self):
+
+    def __init__(self, val_dataloader):
+        self.val_dataloader = val_dataloader
         self.mae_loss = nn.L1Loss()
         self.best_mae = {}  # Stores best MAE for each recon key
 
     def on_validation_epoch_end(self, trainer, pl_module):
         mae_dict = {}
         pl_module.eval()
-        val_dataloader = trainer.datamodule.val_dataloader()
         with torch.no_grad():
-            for batch in val_dataloader:
+            for batch in self.val_dataloader:
                 batch = move_to_device(batch, pl_module.device)
                 data_y = batch["data_y"]
                 inputs = data_y.squeeze(1)
@@ -39,6 +42,7 @@ class MAEMetricCallback(pl.Callback):
                             mae_value = self.mae_loss(recon, inputs).item()
                             mae_dict.setdefault(key, []).append(mae_value)
                 else:
+                    # Fallback if output is not dict, assume key "recon"
                     recon = outputs[1] if isinstance(outputs, tuple) else outputs
                     if isinstance(recon, torch.Tensor) and recon.ndim > inputs.ndim:
                         recon = recon.squeeze(1)
