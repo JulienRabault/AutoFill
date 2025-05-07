@@ -89,11 +89,15 @@ class TrainPipeline:
                                             verbose=True, mode='min')
         checkpoint_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
                                               every_n_epochs=self.config['training'].get('save_every', 1))
+        if "mlflow_uri" in self.config:
+            from dotenv import load_dotenv
+            load_dotenv()
+
         self.logger = MLFlowLogger(
             experiment_name='AUTOFILL',
             run_name=self.config['experiment_name'],
             log_model=True,
-            tracking_uri=f"file:{self.config['logdir']}/mlrun"
+            tracking_uri=self.config.get("mlflow_uri", f"file:{self.config['logdir']}/mlrun")
         )
         self.logger.log_hyperparams(self.config)
         self.all_callbacks = [early_stop_callback, checkpoint_callback] + self.extra_callback_list
@@ -115,7 +119,11 @@ class TrainPipeline:
         base_log_dir = self.trainer.logger.save_dir
         experiment_id = self.trainer.logger.experiment_id
         run_version = self.trainer.logger.version
-        log_path = os.path.join(base_log_dir, experiment_id, run_version)
+        try:
+            log_path = os.path.join(base_log_dir, experiment_id, run_version)
+        except:
+            #use self.config['logdir'] if mlflow is not used
+            log_path = os.path.join(self.config['logdir'], self.config['experiment_name'])
         os.makedirs(log_path, exist_ok=True)
         config_file_path = os.path.join(log_path, 'config_model.yaml')
         with open(config_file_path, 'w') as config_file:

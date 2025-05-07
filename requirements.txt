@@ -8,3 +8,4 @@ warnings
 json
 numpy
 pandas
+python-dotenv
