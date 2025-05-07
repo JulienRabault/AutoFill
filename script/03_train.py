@@ -3,8 +3,8 @@
 #python3 srun.py --mode pair_vae --config "model/pair_vae2.yaml" --mat ag 
 import argparse
 import yaml
-from pygments.lexer import default
-
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.model.trainer import TrainPipeline
 
 
