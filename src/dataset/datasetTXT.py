@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 from src.dataset.transformations import SequentialTransformer
 
 
-class CustomDatasetVAE(Dataset):
+class TXTDataset(Dataset):
     def __init__(self, dataframe, data_dir='/projects/pnria/DATA/AUTOFILL/',
                  transform=None, cache_limit=250000):
         self.dataframe = dataframe
@@ -52,11 +52,15 @@ class CustomDatasetVAE(Dataset):
                 self.data_cache.popitem(last=False)
 
         data_q, data_y = self.data_cache[file_path]
+        data_y_min = data_y.min()
+        data_y_max = data_y.max()
         data_q = self.transformer_q.fit_transform(data_q)
         data_y = self.transformer_y.fit_transform(data_y)
         data_q = torch.as_tensor(data_q, dtype=torch.float32)
         data_y = torch.as_tensor(data_y, dtype=torch.float32)
-        return {"data_q": data_q, "data_y": data_y, "metadata": metadata, "csv_index": idx}
+        return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), "data_y_min": data_y_min,
+                "data_y_max": data_y_max,
+                "metadata": metadata, "csv_index": idx, "path": file_path}
 
     def _build_cat_vocab(self):
         return {
@@ -99,6 +103,6 @@ if __name__ == "__main__":
     data_dir = "/projects/pnria/DATA/AUTOFILL/"
     df = pd.read_csv(data_csv_path)
     df = df[df["technique"].astype(str).str.lower() == "saxs"].reset_index(drop=True)
-    dataset = CustomDatasetVAE(dataframe=df, data_dir=data_dir)
+    dataset = TXTDataset(dataframe=df, data_dir=data_dir)
     print("####### saxs #######")
     dataset.display_data_y_shapes()
