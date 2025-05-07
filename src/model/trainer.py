@@ -95,7 +95,7 @@ class TrainPipeline:
 
         self.logger = MLFlowLogger(
             experiment_name='AUTOFILL',
-            run_name=self.config['experiment_name'],
+            run_name=self.config['run_name'],
             log_model=True,
             tracking_uri=self.config.get("mlflow_uri", f"file:{self.config['logdir']}/mlrun")
         )
@@ -123,7 +123,7 @@ class TrainPipeline:
             log_path = os.path.join(base_log_dir, experiment_id, run_version)
         except:
             #use self.config['logdir'] if mlflow is not used
-            log_path = os.path.join(self.config['logdir'], self.config['experiment_name'])
+            log_path = os.path.join(self.config['logdir'], self.config['run_name'])
         os.makedirs(log_path, exist_ok=True)
         config_file_path = os.path.join(log_path, 'config_model.yaml')
         with open(config_file_path, 'w') as config_file:

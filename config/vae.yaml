@@ -1,4 +1,5 @@
-experiment_name: "TESTGPUJULIEN"
+experiment_name: "AUTOFILL_normalized"
+run_name: test_gpu
 logdir: logs_saxs
 mlflow_uri: "https://mlflowts.irit.fr"
 dataset :
