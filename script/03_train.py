@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument("--mode", type=str, default="vae",choices = ["vae","pair_vae"])
     parser.add_argument("--gridsearch", action='store_true', default=False)
     parser.add_argument("--config", type=str, default="model/VAE/vae_config_saxs.yaml",)
-    parser.add_argument("--name", type=str, default="training", )
+    parser.add_argument("--name", type=str, default=None, )
     parser.add_argument("--hdf5_file", type=str,
                         help="Chemin vers le H5 utilisé, par default celui de la config", default=None)
     parser.add_argument("--conversion_dict_path", type=str,
@@ -29,7 +29,8 @@ def main():
     args = parse_args()
     with open(args.config, 'r') as file:
         config = yaml.safe_load(file)
-    config['name'] = args.name
+    if args.name is not None:
+        config['run_name'] = args.name
     if args.material != "None" :
         config['dataset']["metadata_filters"]['material'] = args.material.split(",")
     if args.technique != "None" and args.mode != "pair_vae":
