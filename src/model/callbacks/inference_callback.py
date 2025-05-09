@@ -27,7 +27,7 @@ class InferencePlotCallback(pl.Callback):
             self,
             curves_config: Dict[str, Dict[str, Any]],
             artifact_file: str = "plot.png",
-            output_dir: str = "inference_results",
+            output_dir: str = None,
             num_samples: int = 4,
             every_n_epochs: int = 10,
     ) -> None:
@@ -103,9 +103,11 @@ class InferencePlotCallback(pl.Callback):
         plt.tight_layout()
         if hasattr(trainer.logger, "experiment"):
             trainer.logger.experiment.log_figure(trainer.logger.run_id, fig, artifact_file=self.artifact_file)
+
+        elif self.output_dir:
+            os.makedirs(self.output_dir, exist_ok=True)
+            plot_path = os.path.join(self.output_dir, self.artifact_file)
+            plt.savefig(plot_path)
         else:
-            base = os.path.join(self.output_dir, "samples", name)
-            os.makedirs(base, exist_ok=True)
-            path = os.path.join(base, f"epoch_{trainer.current_epoch}_{name}.png")
-            plt.savefig(path)
-        plt.close(fig)
+            print("Output directory not specified. Plot not saved.")
+        plt.close()

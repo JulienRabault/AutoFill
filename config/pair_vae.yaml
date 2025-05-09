@@ -1,0 +1,64 @@
+experiment_name : PAIR_VAE_2
+logdir: logs_pairvae
+dataset :
+  hdf5_file: "/projects/pnria/caroline/AUTOFILL/pair_saxs_les_closest_of_concentration.h5"
+  metadata_filters :
+    material: ["ag"]
+  requested_metadata : ["shape", "material"]
+  conversion_dict_path: "/projects/pnria/caroline/AUTOFILL/conversion_dict_all.json"
+  sample_frac: 1.0
+  transform : 
+    y_saxs :
+      MinMaxNormalizer: {}
+      PaddingTransformer:
+        pad_size : 500
+        value : 0
+    y_les :
+      MinMaxNormalizer: {}
+      PaddingTransformer:
+        pad_size: 500
+        value : 0
+    q_les :
+      PaddingTransformer:
+        pad_size : 500
+        value: 0   
+    q_saxs :
+      PaddingTransformer:
+        pad_size: 500
+        value: 0
+          
+training :
+  num_gpus : 1
+  num_nodes : 1
+  num_epochs : 300
+  patience : 20
+  use_loglog: True
+  
+  batch_size: 16
+  num_workers: 3
+
+  lambda_param : 0.005
+  weight_latent_similarity : 0.005
+  weight_saxs2saxs : 0.04
+  weight_saxs2les : 1
+  weight_les2les : 0.5
+  weight_les2saxs : 1
+
+  max_lr : 0.0001
+  T_max : 50
+  eta_min : 0.000001
+
+model :
+  output_saxs_transform_log : True
+  VAE_SAXS :
+    vae_class : ResVAE
+    path_checkpoint : /mnt/data/WORK/Autofill/logs_saxs/mlrun/481688988079232012/f4c5a17439ea490ba13f47c4ea0216f2/checkpoints/epoch=2-step=7485.ckpt
+    path_config : /projects/pnria/julien/autofill/runs/grid_ag_saxs_beta0.0001_ld64_bs16/config_model.yaml
+    args :
+
+
+  VAE_LES :
+    vae_class : ResVAE
+    path_checkpoint : /projects/pnria/julien/autofill/runs/grid_ag_les_beta0.0001_etamin1e-07_ld64_bs64/epoch=73-step=1593590.ckpt
+    path_config : /projects/pnria/julien/autofill/runs/grid_ag_les_beta0.0001_etamin1e-07_ld64_bs64/config_model.yaml
+    args :

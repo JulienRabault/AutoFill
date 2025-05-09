@@ -1,7 +1,5 @@
 experiment_name: "AUTOFILL_normalized"
 run_name: test_gpu
-logdir: logs_saxs
-mlflow_uri: "https://mlflowts.irit.fr"
 dataset :
   hdf5_file: "data.h5"
   metadata_filters :

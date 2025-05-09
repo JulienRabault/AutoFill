@@ -1,12 +1,12 @@
-import os
-
 import lightning.pytorch as pl
 import numpy as np
 import torch
 import yaml
+import re
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import MLFlowLogger
 from torch.utils.data import random_split, DataLoader
+from pathlib import Path
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetPairH5 import PairHDF5Dataset
@@ -21,6 +21,7 @@ class TrainPipeline:
         self.config = config
         print(yaml.dump(self.config, default_flow_style=False, sort_keys=False, allow_unicode=True))
         print("[Pipeline] Building components")
+        self.log_path = self._safe_log_directory()
         self.model, self.dataset, self.extra_callback_list = self._initialize_components()
         print("[Pipeline] Preparing data loaders")
         self.training_loader, self.validation_loader = self._create_data_loaders()
@@ -28,6 +29,31 @@ class TrainPipeline:
         self.trainer = self._configure_trainer()
         print("[Pipeline] Preparing log directory")
         self.log_directory = self._setup_log_directory()
+
+    def _safe_log_directory(self) -> Path:
+        base_dir = Path(self.config['experiment_name'])
+        run_name = self.config['run_name']
+
+        def extract_index(name: str) -> tuple[str, int]:
+            match = re.match(rf"^(.*?)(?:_(\d+))?$", name)
+            if match:
+                base, idx = match.groups()
+                return base, int(idx) if idx else 0
+            return name, 0
+
+        base_name, _ = extract_index(run_name)
+        existing = [p.name for p in base_dir.glob(f"{base_name}*") if p.is_dir()]
+
+        max_index = 0
+        for name in existing:
+            match = re.match(rf"^{re.escape(base_name)}(?:_(\d+))?$", name)
+            if match and match.group(1):
+                max_index = max(max_index, int(match.group(1)))
+
+        next_name = f"{base_name}_{max_index + 1}" if max_index > 0 or run_name == base_name else run_name
+        log_path = base_dir / next_name
+        log_path.mkdir(parents=True)
+        return log_path
 
     def _initialize_components(self):
         model_type = self.config['model']['type']
@@ -63,8 +89,7 @@ class TrainPipeline:
             train_cfg = common_cfg.copy()
             train_cfg['artifact_file'] = 'train_plot.png'
             callbacks.insert(0, InferencePlotCallback(curves_config=curves_config,
-                                                      output_dir=self.config['training'].get('output_dir',
-                                                                                             'inference_results'),
+                                                      output_dir=self.log_path / "inference_results",
                                                       **train_cfg))
 
         return model, dataset, callbacks
@@ -88,16 +113,17 @@ class TrainPipeline:
         early_stop_callback = EarlyStopping(monitor='val_loss', patience=self.config['training']['patience'],
                                             verbose=True, mode='min')
         checkpoint_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
-                                              every_n_epochs=self.config['training'].get('save_every', 1))
+                                              every_n_epochs=self.config['training'].get('save_every', 1),
+                                              dirpath=self.log_path,
+                                              filename="best")
         if "mlflow_uri" in self.config:
             from dotenv import load_dotenv
             load_dotenv()
 
         self.logger = MLFlowLogger(
-            experiment_name='AUTOFILL',
+            experiment_name=self.config['experiment_name'],
             run_name=self.config['run_name'],
-            log_model=True,
-            tracking_uri=self.config.get("mlflow_uri", f"file:{self.config['logdir']}/mlrun")
+            tracking_uri=self.config.get("mlflow_uri", f"file:{self.config['experiment_name']}/mlrun")
         )
         self.logger.log_hyperparams(self.config)
         self.all_callbacks = [early_stop_callback, checkpoint_callback] + self.extra_callback_list
@@ -116,21 +142,24 @@ class TrainPipeline:
         )
 
     def _setup_log_directory(self) -> str:
-        base_log_dir = self.trainer.logger.save_dir
-        experiment_id = self.trainer.logger.experiment_id
-        run_version = self.trainer.logger.version
-        try:
-            log_path = os.path.join(base_log_dir, experiment_id, run_version)
-        except:
-            #use self.config['logdir'] if mlflow is not used
-            log_path = os.path.join(self.config['logdir'], self.config['run_name'])
-        os.makedirs(log_path, exist_ok=True)
-        config_file_path = os.path.join(log_path, 'config_model.yaml')
-        with open(config_file_path, 'w') as config_file:
-            yaml.dump(self.config, config_file, default_flow_style=False, allow_unicode=True)
-        np.save(os.path.join(log_path, 'train_indices.npy'), self.training_loader.dataset.indices)
-        np.save(os.path.join(log_path, 'val_indices.npy'), self.validation_loader.dataset.indices)
-        return log_path
+
+        file_path = self.log_path / "config_model.yaml"
+        with file_path.open("w", encoding="utf-8") as file:
+            yaml.dump(self.config, file, default_flow_style=False, allow_unicode=True)
+
+        print(f"Fichier YAML sauvegardé dans : {file_path}")
+
+        self.trainer.logger.experiment.log_artifact(
+            local_path=str(file_path),
+            run_id=self.trainer.logger.run_id
+        )
+
+        np.save(self.log_path / 'train_indices.npy', self.training_loader.dataset.indices)
+        np.save(self.log_path / 'val_indices.npy', self.validation_loader.dataset.indices)
+        print(f"Indices sauvegardés dans : {self.log_path / 'train_indices.npy'} et {self.log_path / 'val_indices.npy'}")
+        self.trainer.logger.experiment.log_artifact(local_path=str(self.log_path / 'train_indices.npy'),run_id=self.trainer.logger.run_id)
+        self.trainer.logger.experiment.log_artifact(local_path=str(self.log_path / 'val_indices.npy'),run_id=self.trainer.logger.run_id)
+
 
     def train(self):
         print("[Pipeline] Starting training")
