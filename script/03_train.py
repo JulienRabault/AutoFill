@@ -18,9 +18,9 @@ def parse_args():
                         help="Chemin vers le H5 utilisé, par default celui de la config", default=None)
     parser.add_argument("--conversion_dict_path", type=str,
                         help="Chemin vers le dictionnaire de conversion des métadonnées, par default celui de la config", default=None)
-    parser.add_argument("--technique", type=str, default="saxs",
+    parser.add_argument("--technique", type=str, default=None,
                         help="Filtre pour la colonne 'technique'")
-    parser.add_argument("--material", type=str, default="ag",
+    parser.add_argument("--material", type=str, default=None,
                         help="Filtre pour la colonne 'material'")
     return parser.parse_args()
 
@@ -31,9 +31,9 @@ def main():
         config = yaml.safe_load(file)
     if args.name is not None:
         config['run_name'] = args.name
-    if args.material != "None" :
+    if args.material is not  None :
         config['dataset']["metadata_filters"]['material'] = args.material.split(",")
-    if args.technique != "None" and args.mode != "pair_vae":
+    if args.technique is not None and args.mode is not "pair_vae":
         config['dataset']["metadata_filters"]['technique'] = args.technique.split(",")
     config['model']['type'] = args.mode
 

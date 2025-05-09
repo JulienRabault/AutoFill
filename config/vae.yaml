@@ -1,14 +1,12 @@
 experiment_name: "AUTOFILL_normalized"
 run_name: test_gpu
 dataset :
-  hdf5_file: "data.h5"
+  hdf5_file: "data_saxs.h5"
   metadata_filters :
     material: ["ag"]
     technique : ["saxs"]
-    type : ["simulation"]
-    shape : ["cylinder"]
   requested_metadata : ["shape", "material"]
-  conversion_dict_path: "data.json"
+  conversion_dict_path: "conversion_dict_saxs.json"
   sample_frac: 1.0
   transform : 
     y :
