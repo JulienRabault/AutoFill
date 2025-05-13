@@ -1,28 +1,31 @@
-import json
 import os
+import json
 import warnings
-
 import h5py
 from torch.utils.data import Dataset
 
 from dataset.transformations import *
 
-
 class HDF5Dataset(Dataset):
-    def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
-                 sample_frac=1, requested_metadata=[],
-                 transform=None, **kwargs):
+    def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None, 
+                 sample_frac=1, requested_metadata=[], 
+                 transform = None, **kwargs):
         """
         Optimized PyTorch Dataset for HDF5 files with selective metadata preprocessing
         """
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
-
-        self.transformer_q = SequentialTransformer(transform.get("q", None))
-        self.transformer_y = SequentialTransformer(transform.get("y", None))
-
+        
         self.data_q = self.hdf['data_q']
         self.data_y = self.hdf['data_y']
+        
+        if transform is not None:
+            self.transformer_q = SequentialTransformer(transform["q"])
+            self.transformer_y = SequentialTransformer(transform["y"])
+        else:
+            self.transformer_q = SequentialTransformer()
+            self.transformer_y = SequentialTransformer()
+        
         self.csv_index = self.hdf['csv_index']
         self.len = self.hdf['len']
 
@@ -44,7 +47,10 @@ class HDF5Dataset(Dataset):
             self._apply_data_fraction(sample_frac)
 
         # Print initialization info
-        # self._print_init_info()
+        self._print_init_info()
+
+        self.transformer_y.fit(self.data_y[self.filtered_indices])
+        self.transformer_q.fit(self.data_q[self.filtered_indices])
 
     def _print_init_info(self):
         """Print dataset initialization information"""
@@ -116,7 +122,7 @@ class HDF5Dataset(Dataset):
 
     def __len__(self):
         return len(self.filtered_indices)
-
+        
     def _get_metadata(self, idx):
         """Preprocess requested metadata to tensors during initialization"""
         metadata = {}
@@ -133,23 +139,21 @@ class HDF5Dataset(Dataset):
         # Load main data
         data_q = self.data_q[original_idx]
         data_y = self.data_y[original_idx]
-        data_y_min = data_y.min()
-        data_y_max = data_y.max()
 
         # Get preprocessed metadata
         metadata = self._get_metadata(original_idx)
-        metadata = {k: torch.tensor(v) for k, v in metadata.items()}
-
+        metadata = {k : torch.tensor(v) for k,v in metadata.items()}
+      
         # Data processing
-        data_q = self.transformer_q.fit_transform(data_q)
-        data_y = self.transformer_y.fit_transform(data_y)
-
+        data_q = self.transformer_q.transform(data_q)
+        data_y = self.transformer_y.transform(data_y)
+            
         # Convert to tensors if needed
         data_q = torch.as_tensor(data_q, dtype=torch.float32)
         data_y = torch.as_tensor(data_y, dtype=torch.float32)
+        
         # return data_q, data_y, metadata, self.csv_index[original_idx]
-        return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0), "data_y_min": data_y_min,
-                "data_y_max": data_y_max,
+        return {"data_q": data_q.unsqueeze(0), "data_y": data_y.unsqueeze(0),
                 "metadata": metadata, "csv_index": self.csv_index[original_idx], "len": self.len[original_idx]}
 
     def close(self):

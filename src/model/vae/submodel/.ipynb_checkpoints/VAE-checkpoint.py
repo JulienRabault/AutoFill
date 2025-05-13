@@ -96,6 +96,8 @@ class VAE(nn.Module):
         assert not torch.isnan(z).any(), "NaN detected in input latent variable z"
 
         for i, layer in enumerate(self.decoder):
+            if isinstance(layer, nn.Upsample):
+                print(z.size())
             z = layer(z)
             assert not torch.isnan(z).any(), f"NaN detected after layer {i}"
         return z

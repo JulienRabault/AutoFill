@@ -15,8 +15,6 @@ class PlVAE(pl.LightningModule):
         self.beta = config["training"]["beta"]
 
         model_class = self.config["model"]["vae_class"]
-        self.output_transform_log = self.config["model"]["output_transform_log"]
-
         self.model = MODEL_REGISTRY.get(model_class)(**self.config["model"]["args"])
 
     def forward(self, x):
@@ -31,9 +29,6 @@ class PlVAE(pl.LightningModule):
         mu = output['mu']
         logvar = output['logvar']
 
-        if self.output_transform_log:
-            x = torch.log(x + 1e-9)
-            recon = torch.log(recon + 1e-9)
         recon_loss = F.mse_loss(recon, x, reduction='mean')
         # kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / x.size(0)
         kl_div = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))

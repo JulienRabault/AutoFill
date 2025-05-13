@@ -28,8 +28,8 @@ class InferencePlotCallback(pl.Callback):
             curves_config: Dict[str, Dict[str, Any]],
             artifact_file: str = "plot.png",
             output_dir: str = None,
-            num_samples: int = 4,
-            every_n_epochs: int = 10,
+            num_samples: int = 10,
+            every_n_epochs: int = 5,
     ) -> None:
         self.curves_config = curves_config
         self._check_config()
@@ -88,16 +88,18 @@ class InferencePlotCallback(pl.Callback):
         axs = axs if axs.ndim > 1 else axs.reshape(len(indices), cols)
         for row, i in enumerate(indices):
             ax_truth = axs[row, 0]
-            plot_truth = ax_truth.loglog if use_loglog else ax_truth.plot
+            plot_truth = ax_truth.plot
             plot_truth(truth[i].cpu().numpy(), label=f"{name} truth")
             ax_truth.set_title(f"{name} truth {i}")
             ax_truth.legend()
             ax_truth.grid(True)
             for col, (k, v) in enumerate(preds.items(), start=1):
                 ax = axs[row, col]
-                plot_fn = ax.loglog if use_loglog else ax.plot
+                plot_fn = ax.plot
                 plot_fn(v[i].cpu().numpy(), label=k)
                 ax.set_title(f"{k} {i}")
+                if use_loglog :
+                    ax.set_xscale('log')
                 ax.legend()
                 ax.grid(True)
         plt.tight_layout()

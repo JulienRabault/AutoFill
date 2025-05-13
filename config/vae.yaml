@@ -10,13 +10,16 @@ dataset :
   sample_frac: 1.0
   transform : 
     y :
-      MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size : 500
+        pad_size : 54
         value : 0
+      StrictlyPositiveTransformer: {}
+      LogTransformer: {}
+      MinMaxNormalizer: {}
+
     q :
       PaddingTransformer:
-        pad_size: 500
+        pad_size: 54
         value: 0
 
 training :
@@ -36,8 +39,7 @@ training :
   eta_min : 0.0000001
 
 model :
-  vae_class : ResVAE
-  output_transform_log : True
+  vae_class : ResVAEBN
   args :
       in_channels: 1
       output_channels: 1

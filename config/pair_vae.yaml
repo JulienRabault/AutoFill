@@ -9,10 +9,12 @@ dataset :
   sample_frac: 1.0
   transform : 
     y_saxs :
-      MinMaxNormalizer: {}
       PaddingTransformer:
-        pad_size : 500
+        pad_size : 54
         value : 0
+      StrictlyPositiveTransformer: {}
+      LogTransformer: {}
+      MinMaxNormalizer: {}
     y_les :
       MinMaxNormalizer: {}
       PaddingTransformer:
@@ -49,7 +51,6 @@ training :
   eta_min : 0.000001
 
 model :
-  output_saxs_transform_log : True
   VAE_SAXS :
     vae_class : ResVAE
     path_checkpoint : /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_1/best.ckpt
