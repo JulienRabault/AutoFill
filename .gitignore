@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 *.pkl
 *.env
+.idea/
+**.idea/
