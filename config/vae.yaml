@@ -44,7 +44,7 @@ model :
       in_channels: 1
       output_channels: 1
       dilation : 1
-      input_dim : 500
+      input_dim : 54
       latent_dim : 128
       down_channels: [16, 32, 64, 128, 256]
       up_channels: [256, 128, 64, 32, 16]

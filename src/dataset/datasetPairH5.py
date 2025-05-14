@@ -7,7 +7,7 @@ import h5py
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from dataset.transformations import *
+from src.dataset.transformations import *
 
 class PairHDF5Dataset(Dataset):
     def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None, 

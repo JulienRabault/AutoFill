@@ -33,7 +33,7 @@ def main():
         config['run_name'] = args.name
     if args.material is not  None :
         config['dataset']["metadata_filters"]['material'] = args.material.split(",")
-    if args.technique is not None and args.mode is not "pair_vae":
+    if args.technique is not None and args.mode != "pair_vae":
         config['dataset']["metadata_filters"]['technique'] = args.technique.split(",")
     config['model']['type'] = args.mode
 

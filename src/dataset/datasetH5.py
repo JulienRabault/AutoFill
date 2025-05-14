@@ -4,7 +4,7 @@ import warnings
 import h5py
 from torch.utils.data import Dataset
 
-from dataset.transformations import *
+from src.dataset.transformations import *
 
 class HDF5Dataset(Dataset):
     def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None, 
@@ -63,7 +63,7 @@ class HDF5Dataset(Dataset):
         print(f"│ Requested fraction: {self.sample_frac:<22} │")
         print(f"│ Fractioned samples: {len(self.filtered_indices):<22} │")
         print(f"│ Requested metadata: {len(self.requested_metadata):<22} │")
-
+        print("╒══════════════════════════════════════════════╕\n")
     def _validate_requested_metadata(self, requested, available):
         """Validate and filter requested metadata columns"""
         if requested is None:
