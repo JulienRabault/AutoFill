@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import subprocess
 import argparse
 import logging
+import subprocess
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def submit_job(mode, gridsearch, config, tech, mat, gpu):
     print(config)
@@ -19,7 +20,7 @@ def submit_job(mode, gridsearch, config, tech, mat, gpu):
         "--partition", "GPUNodes",
         "--nodes", "1",
         f"--gres=gpu:{gpu}",
-        f"--ntasks-per-node","1",
+        f"--ntasks-per-node", "1",
         "--cpus-per-task", "8",
         "--gres-flags", "enforce-binding",
         "--wrap",
@@ -32,11 +33,12 @@ def submit_job(mode, gridsearch, config, tech, mat, gpu):
         logging.info(f"Job {job_name} submitted successfully.")
     else:
         logging.error(f"Failed to submit job {job_name}: {result.stderr}")
-    subprocess.run(["squeue","--me"])
+    subprocess.run(["squeue", "--me"])
 
-#python3 srun.py --mode pair_vae --mat ag --gpu 0  --gridsearch off
-#python3 srun.py --mode vae --tech les --mat ag --gridsearch off 
-#python3 srun.py --mode vae --tech les --mat ag --gridsearch on
+
+# python3 srun.py --mode pair_vae --mat ag --gpu 0  --gridsearch off
+# python3 srun.py --mode vae --tech les --mat ag --gridsearch off
+# python3 srun.py --mode vae --tech les --mat ag --gridsearch on
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", required=True, help="Model à utiliser", choices=["vae", "pair_vae"])
@@ -46,31 +48,30 @@ if __name__ == "__main__":
     parser.add_argument("--mat", required=False, help="Matériau séparé par ','")
     parser.add_argument("--gpu", default=1, type=int, help="Nombre de GPUs")
 
-
     args = parser.parse_args()
 
     if args.gridsearch == "on":
         if args.mode == "pair_vae":
             config = "model/pair_vae2.yaml"
-        else :
+        else:
             if args.tech == "saxs":
                 config = "model/VAE/vae_config_saxs.yaml"
             elif args.tech == "les":
                 config = "model/VAE/vae_config_les.yaml"
             else:
                 raise ValueError("Tech")
-                
-    else :
+
+    else:
         config = args.config
-        if config is None :
+        if config is None:
             if args.mode == "pair_vae":
                 config = "model/pair_vae2.yaml"
-            else :
+            else:
                 if args.tech == "saxs":
                     config = "model/VAE/vae_config_saxs.yaml"
                 elif args.tech == "les":
                     config = "model/VAE/vae_config_les.yaml"
                 else:
                     raise ValueError("Tech")
-    
+
     submit_job(args.mode, args.gridsearch, config, args.tech, args.mat, args.gpu)

@@ -1,21 +1,24 @@
 import argparse
-import os
 import json
-import pandas as pd
-import numpy as np
+import math
+import os
+import warnings
+from pathlib import Path
+
 import h5py
+import numpy as np
+import pandas as pd
 from pygments.lexer import default
 from tqdm import tqdm
-import warnings
-import math
-from pathlib import Path
+
 
 class TextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'], json_output='conversion_dict.json'):
+                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'],
+                 json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
-        self.base= Path(self.data_dir)
+        self.base = Path(self.data_dir)
         self.output_dir = output_dir
         self.pad_size = pad_size
         self.hdf_cache = hdf_cache
@@ -79,7 +82,7 @@ class TextToHDF5Converter:
         data_y = []
         expected_num_columns = 2
 
-        with open(full_path, 'r', encoding="utf-8-sig" ) as f:
+        with open(full_path, 'r', encoding="utf-8-sig") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
@@ -93,7 +96,8 @@ class TextToHDF5Converter:
                     tokens = line.split()
 
                 try:
-                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if token != '']
+                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if
+                              token != '']
                 except ValueError:
                     continue
 
@@ -192,8 +196,10 @@ if __name__ == "__main__":
     parser.add_argument("--data_csv_path", type=str, required=True, help="Path to CSV metadata file.")
     parser.add_argument("--data_dir", type=str, required=True, help="Base directory where text files are located.")
     parser.add_argument("--pad_size", type=int, default=500, help="Padding size for time series.")
-    parser.add_argument("--final_output_file", default="data.h5", type=str, required=True, help="Output HDF5 file path.")
-    parser.add_argument("--json_output", default="data.json", type=str, required=True, help="Path to output JSON dictionary.")
+    parser.add_argument("--final_output_file", default="data.h5", type=str, required=True,
+                        help="Output HDF5 file path.")
+    parser.add_argument("--json_output", default="data.json", type=str, required=True,
+                        help="Path to output JSON dictionary.")
     args = parser.parse_args()
 
     if not os.path.exists(args.data_csv_path):

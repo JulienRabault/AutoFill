@@ -21,7 +21,6 @@ class TXTDataset(Dataset):
         self.transformer_q = SequentialTransformer(transform.get("q", None))
         self.transformer_y = SequentialTransformer(transform.get("y", None))
 
-
         self.cat_vocab = self._build_cat_vocab()
         self.metadata_tensor = self._preprocess_metadata()
         self.data_cache = OrderedDict()
@@ -97,12 +96,3 @@ class TXTDataset(Dataset):
             torch.tensor(df['q'].values, dtype=torch.float32),
             torch.tensor(df['y'].values, dtype=torch.float32)
         )
-
-if __name__ == "__main__":
-    data_csv_path = "/projects/pnria/DATA/AUTOFILL/all_data_v1.csv"
-    data_dir = "/projects/pnria/DATA/AUTOFILL/"
-    df = pd.read_csv(data_csv_path)
-    df = df[df["technique"].astype(str).str.lower() == "saxs"].reset_index(drop=True)
-    dataset = TXTDataset(dataframe=df, data_dir=data_dir)
-    print("####### saxs #######")
-    dataset.display_data_y_shapes()

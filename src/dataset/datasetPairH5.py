@@ -1,18 +1,19 @@
-import os
 import json
+import os
 import warnings
-import numpy as np
-import torch
+
 import h5py
+import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from src.dataset.transformations import *
 
+
 class PairHDF5Dataset(Dataset):
-    def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None, 
-                 sample_frac=1, requested_metadata=[], 
-                 transform = None, **kwargs):
+    def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
+                 sample_frac=1, requested_metadata=[],
+                 transform=None, **kwargs):
         """
         Optimized PyTorch Dataset for HDF5 files with selective metadata preprocessing
         """
@@ -37,7 +38,7 @@ class PairHDF5Dataset(Dataset):
             self.transformer_y_les = SequentialTransformer()
 
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
-                             ['data_q_saxs', 'data_y_saxs', 'data_q_les', 'data_y_les','len', 'csv_index']]
+                             ['data_q_saxs', 'data_y_saxs', 'data_q_les', 'data_y_les', 'len', 'csv_index']]
         self.metadata_datasets = {col: self.hdf[col] for col in all_metadata_cols}
 
         self.requested_metadata = self._validate_requested_metadata(requested_metadata, all_metadata_cols)
@@ -58,7 +59,7 @@ class PairHDF5Dataset(Dataset):
 
         self.transformer_y_saxs.fit(self.data_y_saxs[self.filtered_indices])
         self.transformer_y_les.fit(self.data_y_les[self.filtered_indices])
-      
+
     def _print_init_info(self):
         """Print dataset initialization information"""
         print("\n╒══════════════════════════════════════════════╕")
@@ -129,7 +130,7 @@ class PairHDF5Dataset(Dataset):
 
     def __len__(self):
         return len(self.filtered_indices)
-        
+
     def _get_metadata(self, idx):
         """Preprocess requested metadata to tensors during initialization"""
         metadata = {}
@@ -151,22 +152,22 @@ class PairHDF5Dataset(Dataset):
 
         # Get preprocessed metadata
         metadata = self._get_metadata(original_idx)
-        metadata = {k : torch.tensor(v) for k,v in metadata.items()}
-      
+        metadata = {k: torch.tensor(v) for k, v in metadata.items()}
+
         # Data processing
         data_q_saxs = self.transformer_q_saxs.transform(data_q_saxs)
         data_y_saxs = self.transformer_y_saxs.transform(data_y_saxs)
         data_q_les = self.transformer_q_les.transform(data_q_les)
-        data_y_les = self.transformer_y_les.transform(data_y_les) 
-    
+        data_y_les = self.transformer_y_les.transform(data_y_les)
+
         # Convert to tensors if needed
         data_q_saxs = torch.as_tensor(data_q_saxs, dtype=torch.float32)
         data_y_saxs = torch.as_tensor(data_y_saxs, dtype=torch.float32)
         data_q_les = torch.as_tensor(data_q_les, dtype=torch.float32)
         data_y_les = torch.as_tensor(data_y_les, dtype=torch.float32)
-        
+
         # return data_q, data_y, metadata, self.csv_index[original_idx]
-        return {"data_q_saxs": data_q_saxs.unsqueeze(0), "data_y_saxs": data_y_saxs.unsqueeze(0), 
+        return {"data_q_saxs": data_q_saxs.unsqueeze(0), "data_y_saxs": data_y_saxs.unsqueeze(0),
                 "data_q_les": data_q_les.unsqueeze(0), "data_y_les": data_y_les.unsqueeze(0),
                 "metadata": metadata, "csv_index": self.csv_index[original_idx]}
 

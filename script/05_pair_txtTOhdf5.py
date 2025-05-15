@@ -1,17 +1,18 @@
-
-import os
 import json
-import pandas as pd
-import numpy as np
-import h5py
-from tqdm import tqdm
-import warnings
 import math
+import os
+import warnings
+
+import h5py
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
 
 
 class PairTextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['saxs_path', 'les_path', 'researcher', 'date'], json_output='conversion_dict.json'):
+                 final_output_file='final_output.h5', exclude=['saxs_path', 'les_path', 'researcher', 'date'],
+                 json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -56,9 +57,11 @@ class PairTextToHDF5Converter:
     def _flush_into_hdf5(self, current_index, current_size):
         """Sauvegarde les données en batch dans le fichier HDF5"""
         self.hdf_files["data_q_saxs"].resize((current_index + current_size, self.pad_size))
-        self.hdf_files["data_q_saxs"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size, :]
+        self.hdf_files["data_q_saxs"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size,
+                                                                                       :]
         self.hdf_files["data_y_saxs"].resize((current_index + current_size, self.pad_size))
-        self.hdf_files["data_y_saxs"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size, :]
+        self.hdf_files["data_y_saxs"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size,
+                                                                                       :]
 
         self.hdf_files["data_q_les"].resize((current_index + current_size, self.pad_size))
         self.hdf_files["data_q_les"][current_index:current_index + current_size, :] = self.hdf_data[2][:current_size, :]
@@ -88,7 +91,7 @@ class PairTextToHDF5Converter:
         data_y = []
         expected_num_columns = 2
 
-        with open(full_path, 'r', encoding="utf-8-sig" ) as f:
+        with open(full_path, 'r', encoding="utf-8-sig") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
@@ -102,7 +105,8 @@ class PairTextToHDF5Converter:
                     tokens = line.split()
 
                 try:
-                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if token != '']
+                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if
+                              token != '']
                 except ValueError:
                     continue
 
@@ -159,15 +163,15 @@ class PairTextToHDF5Converter:
                 pbar.update(1)
                 file_path_saxs = os.path.join(self.data_dir, row['saxs_path'])
                 file_path_les = os.path.join(self.data_dir, row['les_path'])
-                
+
                 try:
-                    
+
                     data_q_saxs, data_y_saxs = self._load_data_from_file(file_path_saxs)
                     data_q_les, data_y_les = self._load_data_from_file(file_path_les)
                     original_len = len(data_q_saxs)
                     data_q_saxs, data_y_saxs = self._pad_data(data_q_saxs, data_y_saxs)
                     data_q_les, data_y_les = self._pad_data(data_q_les, data_y_les)
-                    
+
                 except Exception as e:
                     warnings.warn(f"Erreur fichier {row['saxs_path']} {row['les_path']}: {e}")
                     continue
@@ -195,7 +199,7 @@ class PairTextToHDF5Converter:
         with open(self.json_output, "w") as f:
             json.dump(self.conversion_dict, f)
         print(f"Conversion terminée, dictionnaire sauvegardé : {self.json_output}")
-        
+
         print(f"Nombre de fichiers valides {current_size} sur {len(self.dataframe)} fichiers au départ")
 
         print("Conversion terminée, dictionnaire sauvegardé.")

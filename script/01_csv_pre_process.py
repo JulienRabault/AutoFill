@@ -1,8 +1,9 @@
-import pandas as pd
-import re
 import argparse
 import os
+import re
 from pathlib import Path
+
+import pandas as pd
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
@@ -15,18 +16,19 @@ all_rows = []
 for input_file in args.inputs:
     df = pd.read_csv(input_file, sep=';', dtype=str)
 
+
     def extract_d_h(dimension):
         match = re.search(r'd=(\d+(\.\d+)?)\s+l=(\d+(\.\d+)?)', str(dimension))
         if match:
             return float(match.group(1)), float(match.group(3))
         return None, None
 
+
     df['d'], df['h'] = zip(*df['dimension'].apply(extract_d_h))
 
     df['concentration'] = df['concentration'].astype(float)
 
     df = df.drop(columns=['dimension'])
-
 
     for _, row in tqdm(df.iterrows(), total=len(df), desc=f"Traitement de {input_file}"):
         raw_path = row['path'].replace('\\', '/')

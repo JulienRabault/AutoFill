@@ -2,7 +2,7 @@ import torch
 import yaml
 from torch import nn
 
-from model.VAE.submodel.registry import *
+from src.model.vae.submodel.registry import *
 
 
 class PairVAE(nn.Module):

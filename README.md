@@ -1,12 +1,14 @@
 # Toolbox VAE/PairVAE
 
 # TODO :
+
 - [x] Faire l'inference => utiliser les modeles
-- [ ] Expliquer la sorti des train, poids + analyse de courbe 
+- [ ] Expliquer la sorti des train, poids + analyse de courbe
 - [x] Bouger les fichiers/dossier
 - [ ] Renforcer les explications sur le fonctionnement du pairVAE ?
 
-### Auteurs : 
+### Auteurs :
+
 - **Julien Rabault** (julien.rabault@irit.fr)
 - **Caroline De Pourtales** (caroline.de-pourtales@irit.fr)
 
@@ -27,40 +29,74 @@ AutoFill/
 
 ## Installation
 
-1. **Pré-requis**:
+1. Prérequis
+   Python 3.8+ : uv peut gérer automatiquement l'installation de Python si nécessaire.
 
-   * Python3.8+
+2. Cloner le projet
 
-2. **Clone du projet**:
+```bash
+git clone https://github.com/JulienRabault/AutoFill.git
+cd AutoFill
+```
 
-   ```bash
-   git clone https://github.com/JulienRabault/AutoFill.git
-   cd AutoFill
-   ```
+3. Installer uv
 
-3. **Environnement et dépendances**:
+**Sur Linux**
 
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-   Si GPU disponible, installez PyTorch avec CUDA: consultez [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+> Remarque : uv sera installé dans ~/.local/bin. Assurez-vous que ce répertoire est inclus dans votre variable
+> d'environnement PATH.
+
+**Sur Windows**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+> Remarque : Après l'installation, fermez et rouvrez votre terminal pour que uv soit reconnu. Si nécessaire, ajoutez
+> manuellement le chemin d'installation de uv à votre variable d'environnement PATH.
+
+Puis installez les dépendances (optionnel) :
+
+```bash
+uv sync --no-dev
+```
+
+4. (Optionnel) Créer un environnement virtuel avec `venv`
+
+Si vous ne souhaitez pas utiliser `uv`, vous pouvez créer un environnement virtuel avec `venv` :
+
+```bash
+python3 -m venv env
+source env/bin/activate
+pip install -r requirements.txt # (Windows : .\env\Scripts\activate)
+```
+
+> Pour la suite, si vous utilisez `venv` ou `conda`, remplacez `uv run` par `python`.
 
 ## Pipeline
 
-1. **[Prétraitement CSV](#1-prétraitement-csv-csv_pre_processpy)** : fusion et nettoyage → `metadata_clean.csv`  
-2. **[Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py)** : séries temporelles + métadonnées → `all_data.h5` + `metadata_dict.json`  
-3. **[Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5)** : filtre, configuration YAML → lancement du training VAE  
-4. **[Inference (optionnelle)](#4-inference-optionnelle)** : analyse des résultats à partir des poids entraînés  
-5. **[Conversion .txt → HDF5 (PairVAE)](#5-conversion-txt--hdf5-pour-pairvae)** : séries temporelles + métadonnées → `all_data.h5` + `metadata_dict.json`  
-6. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du training PairVAE
+1. **[Prétraitement CSV](#1-prétraitement-csv-csv_pre_processpy)** : fusion et nettoyage → `metadata_clean.csv`
+2. **[Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py)** : séries temporelles + métadonnées →
+   `all_data.h5` + `metadata_dict.json`
+3. **[Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5)** : filtre, configuration YAML →
+   lancement du training VAE
+4. **[Inference (optionnelle)](#4-inference-optionnelle)** : analyse des résultats à partir des poids entraînés
+5. **[Conversion .txt → HDF5 (PairVAE)](#5-conversion-txt--hdf5-pour-pairvae)** : séries temporelles + métadonnées →
+   `all_data.h5` + `metadata_dict.json`
+6. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du
+   training PairVAE
 
 ### 1. Prétraitement CSV
+
 `01_csv_pre_process.py`
 
-Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées. Cette convertion tourne sur CPU et demande beaucoup de ressource pour aller vite. Utiliser `tmux` pour lancer le script en arrière plan. Par exemple pour 1.5M de `.txt` cela prend environ 10h.
+Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées. Cette convertion tourne sur CPU et demande beaucoup
+de ressource pour aller vite. Utiliser `tmux` pour lancer le script en arrière plan. Par exemple pour 1.5M de `.txt`
+cela prend environ 10h.
 
 **Arguments:**
 
@@ -73,14 +109,17 @@ python scripts/01_csv_pre_process.py \
   data/metadata_clean.csv
 ```
 
-> **Exemple**: après exécution, le fichier `data/metadata_clean.csv` contient toutes les métadonnées normalisées. Vous pourrez l’utiliser à l’étape suivante pour la conversion au format HDF5.
+> **Exemple**: après exécution, le fichier `data/metadata_clean.csv` contient toutes les métadonnées normalisées. Vous
+> pourrez l’utiliser à l’étape suivante pour la conversion au format HDF5.
 
 ### 2. Conversion `.txt` → HDF5 avec `02_txtTOhdf5.py`
 
 Objectif: convertir les séries temporelles (`.txt`) et le CSV de métadonnées en un unique fichier HDF5.
 
 Arguments:
-* `--data_csv_path` : chemin vers le fichier CSV de métadonnées (doit contenir au moins une colonne path vers les fichiers .txt).
+
+* `--data_csv_path` : chemin vers le fichier CSV de métadonnées (doit contenir au moins une colonne path vers les
+  fichiers .txt).
 * `--data_dir` : dossier racine contenant les fichiers .txt.
 * `--final_output_file` : chemin de sortie pour le fichier .h5 généré.
 * `--json_output` : chemin de sortie pour le dictionnaire de conversion des métadonnées catégorielles (au format JSON).
@@ -95,7 +134,8 @@ python scripts/02_txtTOhdf5.py \
   --pad_size 900
 ```
 
-> **Exemple**: en sortie, `data/all_data.h5` contient `data_q`, `data_y`, `len`, `csv_index` et toutes les métadonnées, et `data/metadata_dict.json` recense les encodages catégoriels. Vous utiliserez ces deux fichiers pour l’entraînement.
+> **Exemple**: en sortie, `data/all_data.h5` contient `data_q`, `data_y`, `len`, `csv_index` et toutes les métadonnées,
+> et `data/metadata_dict.json` recense les encodages catégoriels. Vous utiliserez ces deux fichiers pour l’entraînement.
 
 **Structure HDF5 générée :**
 
@@ -110,12 +150,15 @@ final_output.h5
 └── ...             [N]
 ```
 
-> **Note:** `data_q` et `data_y` sont les séries temporelles et `csv_index` est l’index du CSV d’origine. Les colonnes de métadonnées sont ajoutées à la fin.
+> **Note:** `data_q` et `data_y` sont les séries temporelles et `csv_index` est l’index du CSV d’origine. Les colonnes
+> de métadonnées sont ajoutées à la fin.
 
 **Attention aux chemins (path) dans le CSV :**
 
-Les chemins indiqués dans la colonne path du CSV doivent être relatifs au répertoire --data_dir. Le script les concatène pour localiser les fichiers `.txt`. Toute incohérence entraînera des erreurs ou des fichiers ignorés.
-Avant de lancer la conversion, vous pouvez utiliser `saminitycheck.py` pour valider que tous les fichiers .txt référencés dans le CSV existent réellement dans le répertoire `--data_dir`.
+Les chemins indiqués dans la colonne path du CSV doivent être relatifs au répertoire --data_dir. Le script les concatène
+pour localiser les fichiers `.txt`. Toute incohérence entraînera des erreurs ou des fichiers ignorés.
+Avant de lancer la conversion, vous pouvez utiliser `saminitycheck.py` pour valider que tous les fichiers .txt
+référencés dans le CSV existent réellement dans le répertoire `--data_dir`.
 
 **Exécutez le script `saminitycheck.py` :**
 
@@ -125,8 +168,8 @@ python scripts/saminitycheck.py \
   --basedir data/txt/
 ```
 
-Ce script vérifiera que chaque chemin dans la colonne path (colonne contenant `"path"` dans son nom) du CSV correspond à un fichier existant dans le répertoire `--basedir`. Si des fichiers manquent, ils seront listés.
-
+Ce script vérifiera que chaque chemin dans la colonne path (colonne contenant `"path"` dans son nom) du CSV correspond à
+un fichier existant dans le répertoire `--basedir`. Si des fichiers manquent, ils seront listés.
 
 ### 3. Entraînement du modèle à partir du fichier HDF5 `03_train.py`
 
@@ -143,7 +186,17 @@ python scripts/03_train.py \
   --material ag
 ```
 
-> **Exemple**: ici `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés sur `technique=saxs` et `material=ag`.
+> **IMPORTANT** : l'utilisation de `--technique` et `--material`dans les paramettres du script, SURCHARGE les filtres
+> définis dans le fichier de configuration YAML. Cela surcharge aussi les `pad_size` dans les transformations .
+>
+> `LES` pad_size **500** par defaut
+>
+> `SAXS` pad_size **54** par defaut
+>
+> Il est donc préférable de ne pas les définir dans le YAML si vous utilisez ces arguments.
+
+> **Exemple**: ici `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés
+> sur `technique=saxs` et `material=ag`.
 
 ### Paramètres minimum modifiables dans le YAML (config/vae.yml)
 
@@ -151,30 +204,35 @@ python scripts/03_train.py \
 * **`logdir`** : dossier où seront stockés logs et checkpoints.
 * **`dataset`**
 
-  * `hdf5_file` : chemin vers votre fichier `.h5`.
-  * `conversion_dict_path` : chemin vers le JSON de mapping.
-  * `metadata_filters` : filtres à appliquer sur les métadonnées (ex. material, technique, type, shape).
-  * `sample_frac` : fraction d’échantillonnage (entre 0.0 et 1.0).
+    * `hdf5_file` : chemin vers votre fichier `.h5`.
+    * `conversion_dict_path` : chemin vers le JSON de mapping.
+    * `metadata_filters` : filtres à appliquer sur les métadonnées (ex. material, technique, type, shape).
+    * `sample_frac` : fraction d’échantillonnage (entre 0.0 et 1.0).
 * **`transform`**
 
-  * `q` et `y` – `PaddingTransformer.pad_size` doit correspondre à `pad_size` utilisé lors de la conversion `.txt`.
+    * `q` et `y` – `PaddingTransformer.pad_size` doit correspondre à `pad_size` utilisé lors de la conversion `.txt`.
 * **`training`**
 
-  * `num_epochs` : nombre d’époques maximales.
-  * `batch_size` : taille de batch.
-  * `num_workers` : nombre de workers DataLoader. (Nombre de cpu disponible)
-  * `max_lr`, `T_max`, `eta_min` : planning de taux d’apprentissage.
-  * `beta` : coefficient β du VAE. 
+    * `num_epochs` : nombre d’époques maximales.
+    * `batch_size` : taille de batch.
+    * `num_workers` : nombre de workers DataLoader. (Nombre de cpu disponible)
+    * `max_lr`, `T_max`, `eta_min` : planning de taux d’apprentissage.
+    * `beta` : coefficient β du VAE.
 * **`model.args`**
-  * `input_dim` : doit être égal à pad_size.
-> **Note :** en dehors de ces clefs, tout autre paramètre dans le YAML n’est pas nécessairement safe à modifier si vous débutez en IA. Respectez surtout la cohérence pad_size / input_dim et les chemins d’accès pour éviter les erreurs.
+    * `input_dim` : doit être égal à pad_size.
+
+> **Note :** en dehors de ces clefs, tout autre paramètre dans le YAML n’est pas nécessairement safe à modifier si vous
+> débutez en IA. Respectez surtout la cohérence pad_size / input_dim et les chemins d’accès pour éviter les erreurs.
 
 ### 4. Inference (optionnelle)
+
 ...
 
 ### 5. Entraînement du modèle PAIRVAE à partir du fichier HDF5 `03_train.py`
 
-De la même manière que [Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py), vous pouvez convertir vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `05_pair_txtTOhdf5.py` est conçu pour cela.
+De la même manière que [Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py), vous pouvez convertir
+vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `05_pair_txtTOhdf5.py` est conçu
+pour cela.
 
 Arguments :
 
@@ -187,7 +245,8 @@ python scripts/05_pair_txtTOhdf5.py \
   --json_output     data/pair_metadata_dict.json
 ```
 
-> Les chemins dans `saxs_path` et `les_path` doivent être relatifs à `--data_dir`. Vous pouvez contrôler l’existence de chaque paire de fichiers avec `scripts/saminitycheck.py` au besoin.
+> Les chemins dans `saxs_path` et `les_path` doivent être relatifs à `--data_dir`. Vous pouvez contrôler l’existence de
+> chaque paire de fichiers avec `scripts/saminitycheck.py` au besoin.
 
 Structure du HDF5 généré (final_output.h5) :
 
@@ -204,6 +263,7 @@ final_output.h5
 ├── <metadata_2>   [N]
 └── ...            ...
 ```
+
 Une fois la conversion terminée, vous obtenez :
 
 - `data/all_pair_data.h5` prêt pour l’entraînement ;
@@ -211,26 +271,66 @@ Une fois la conversion terminée, vous obtenez :
 
 ### 6. Entraînement du modèle PAIRVAE
 
-L’entraînement du PairVAE se fait de la même manière que [Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5), mais avec un fichier HDF5 différent et une configuration YAML différente.
+L’entraînement du PairVAE se fait de la même manière
+que [Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5), mais avec un fichier HDF5
+différent et une configuration YAML différente.
 
-Lancez l’entraînement en mode pairvae avec votre template `config/pairvae.yml` :
+TODO
 
-```bash
-python scripts/03_train.py \
-  --mode pairvae \
-  --gridsearch off \
-  --config model/PairVAE/config/pairvae.yml \
-  --name AUTOFILL_SAXS_PAIRVAE \
-  --hdf5_file data/all_data.h5 \
-  --conversion_dict_path data/metadata_dict.json \
-  --technique saxs \
-  --material ag
+Dans cette exmple `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés
+sur `technique=saxs` et `material=ag`.
+
+---
+
+### Expert : Recherche par grille (Grid Search)
+
+Vous pouvez automatiser l’optimisation des hyperparamètres grâce à la recherche par grille intégrée.
+
+**1. Définissez un bloc `param_grid` dans votre fichier YAML de configuration (voir `config/vae.yaml`):**
+
+Le bloc `param_grid` vous permet de spécifier les hyperparamètres à explorer et les différentes valeurs à tester pour
+chacun. Chaque clé doit correspondre à un paramètre de votre configuration, en utilisant la notation pointée (`.`) pour
+accéder aux champs imbriqués.
+
+```yaml
+param_grid:
+  training.beta: [ 0.001, 0.0001 ]                # Teste deux valeurs pour beta
+  model.args.latent_dim: [ 64, 128, 256 ]         # Teste trois dimensions latentes différentes
+  training.batch_size: [ 16, 32, 64 ]             # Teste trois tailles de batch
 ```
 
-Dans cette exmple `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés sur `technique=saxs` et `material=ag`.
+- La recherche par grille générera automatiquement toutes les combinaisons possibles de ces valeurs.
+- Les clés (par exemple `training.beta`, `model.args.latent_dim`) doivent correspondre à la structure de votre fichier
+  de configuration.
+- Vous pouvez ajouter ou retirer des paramètres selon vos besoins, et chaque paramètre peut avoir autant de valeurs que
+  vous le souhaitez.
+
+#### Comment ça marche:
+
+Avec l’exemple ci-dessus, la recherche par grille lancera (2 \times 3 \times 3 = 18) entraînements différents, chacun
+avec une combinaison unique de beta, latent_dim et batch_size.
+
+> Vous pouvez inclure n’importe quel paramètre de votre fichier de configuration dans le `param_grid`, à condition
+> d’utiliser le bon chemin (notation pointée) vers ce paramètre.
+
+**2. Lancez la recherche par grille:**
+
+```bash
+python scripts/03_train.py --mode vae --config config/vae.yaml --gridsearch
+```
+
+- Chaque combinaison de paramètres sera testée séquentiellement.
+- Les résultats et configurations sont sauvegardés dans le dossier `gridsearch_results/`.
+- Utilisez l’option `verbose` dans votre configuration ou dans le code pour contrôler l’affichage des logs.
+
+> La recherche par grille écrasera les valeurs correspondantes de votre configuration de base pour chaque essai.  
+> Assurez-vous que les clefs de `param_grid` correspondent à la structure imbriquée de votre fichier de configuration.
+
+---
 
 ### Contact
 
 Pour toute question ou problème, n’hésitez pas à contacter :
+
 - **Julien Rabault** (julien.rabault@irit.fr)
 - **Caroline De Pourtales** (caroline.de-pourtales@irit.fr)

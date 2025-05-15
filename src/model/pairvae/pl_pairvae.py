@@ -64,7 +64,6 @@ class PlPairVAE(pl.LightningModule):
         return loss_total, details
 
     def training_step(self, batch, batch_idx):
-
         outputs = self(batch)
 
         loss_total, details = self.compute_loss(batch, outputs)
@@ -84,7 +83,6 @@ class PlPairVAE(pl.LightningModule):
         return loss_total
 
     def validation_step(self, batch, batch_idx):
-
         outputs = self(batch)
 
         loss_total, details = self.compute_loss(batch, outputs)

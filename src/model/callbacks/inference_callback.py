@@ -51,7 +51,7 @@ class InferencePlotCallback(pl.Callback):
             if 'truth_key' not in cfg or 'pred_keys' not in cfg:
                 raise ValueError(f"Configuration for {name} must contain 'truth_key' and 'pred_keys'")
             if not isinstance(cfg['pred_keys'], list):
-                try :
+                try:
                     cfg['pred_keys'] = list(cfg['pred_keys'])
                 except:
                     raise ValueError(f"'pred_keys' for {name} must be a list")
@@ -98,7 +98,7 @@ class InferencePlotCallback(pl.Callback):
                 plot_fn = ax.plot
                 plot_fn(v[i].cpu().numpy(), label=k)
                 ax.set_title(f"{k} {i}")
-                if use_loglog :
+                if use_loglog:
                     ax.set_xscale('log')
                 ax.legend()
                 ax.grid(True)

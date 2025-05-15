@@ -1,12 +1,13 @@
+import re
+from pathlib import Path
+
 import lightning.pytorch as pl
 import numpy as np
 import torch
 import yaml
-import re
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import MLFlowLogger
 from torch.utils.data import random_split, DataLoader
-from pathlib import Path
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetPairH5 import PairHDF5Dataset
@@ -15,20 +16,56 @@ from src.model.callbacks.metrics_callback import MAEMetricCallback
 from src.model.pairvae.pl_pairvae import PlPairVAE
 from src.model.vae.pl_vae import PlVAE
 
+
 class TrainPipeline:
-    def __init__(self, config: dict):
-        print("[Pipeline] Loading configuration")
-        self.config = config
-        print(yaml.dump(self.config, default_flow_style=False, sort_keys=False, allow_unicode=True))
-        print("[Pipeline] Building components")
+    def __init__(self, config: dict, verbose=True):
+        self.verbose = verbose
+        self.config = self._set_defaults(config)
+        if self.verbose:
+            print("[Pipeline] Loading configuration")
+            print(yaml.dump(self.config, default_flow_style=False, sort_keys=False, allow_unicode=True))
+            print("[Pipeline] Building components")
         self.log_path = self._safe_log_directory()
         self.model, self.dataset, self.extra_callback_list = self._initialize_components()
-        print("[Pipeline] Preparing data loaders")
+        if self.verbose:
+            print("[Pipeline] Preparing data loaders")
         self.training_loader, self.validation_loader = self._create_data_loaders()
-        print("[Pipeline] Building trainer")
+        if self.verbose:
+            print("[Pipeline] Building trainer")
         self.trainer = self._configure_trainer()
-        print("[Pipeline] Preparing log directory")
+        if self.verbose:
+            print("[Pipeline] Preparing log directory")
         self.log_directory = self._setup_log_directory()
+
+    def _set_defaults(self, config):
+        # Required fields
+        for key in ['experiment_name', 'run_name', 'model', 'dataset', 'training']:
+            if key not in config:
+                raise ValueError(f"Missing required config key: {key}")
+
+        training = config['training']
+        # Required training fields
+        for key in ['num_epochs']:
+            if key not in training:
+                raise ValueError(f"Missing required training config key: {key}")
+
+        # Set intelligent defaults
+        training.setdefault('patience', max(1, training['num_epochs'] // 5))
+        training.setdefault('batch_size', 32)
+        training.setdefault('num_workers', 4)
+        training.setdefault('use_loglog', True)
+        training.setdefault('num_gpus', 1)
+        training.setdefault('save_every', 1)
+        training.setdefault('output_dir', 'train_results')
+        training.setdefault('plot_train', True)
+        training.setdefault('every_n_epochs', 10)
+        training.setdefault('num_samples', 4)
+        config['training'] = training
+
+        # Model type default
+        if 'type' not in config['model']:
+            raise ValueError("Missing required model type in config['model']['type']")
+        return config
 
     def _safe_log_directory(self) -> Path:
         base_dir = Path(self.config['experiment_name'])
@@ -99,17 +136,20 @@ class TrainPipeline:
         total_samples = len(dataset_instance)
         train_count = int(0.8 * total_samples)
         validation_count = total_samples - train_count
-        print(f"[Data] Splitting dataset: train={train_count}, validation={validation_count}")
+        if self.verbose:
+            print(f"[Data] Splitting dataset: train={train_count}, validation={validation_count}")
         train_subset, validation_subset = random_split(dataset_instance, [train_count, validation_count])
         batch_size = self.config['training']['batch_size']
         num_workers = self.config['training']['num_workers']
-        print(f"[Data] Creating DataLoaders with batch_size={batch_size}, num_workers={num_workers}")
+        if self.verbose:
+            print(f"[Data] Creating DataLoaders with batch_size={batch_size}, num_workers={num_workers}")
         training_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         validation_loader = DataLoader(validation_subset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         return training_loader, validation_loader
 
     def _configure_trainer(self):
-        print("[Trainer] Configuring callbacks and logger")
+        if self.verbose:
+            print("[Trainer] Configuring callbacks and logger")
         early_stop_callback = EarlyStopping(monitor='val_loss', patience=self.config['training']['patience'],
                                             verbose=True, mode='min')
         checkpoint_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
@@ -147,7 +187,8 @@ class TrainPipeline:
         with file_path.open("w", encoding="utf-8") as file:
             yaml.dump(self.config, file, default_flow_style=False, allow_unicode=True)
 
-        print(f"Fichier YAML sauvegardé dans : {file_path}")
+        if self.verbose:
+            print(f"Fichier YAML sauvegardé dans : {file_path}")
 
         self.trainer.logger.experiment.log_artifact(
             local_path=str(file_path),
@@ -156,10 +197,13 @@ class TrainPipeline:
 
         np.save(self.log_path / 'train_indices.npy', self.training_loader.dataset.indices)
         np.save(self.log_path / 'val_indices.npy', self.validation_loader.dataset.indices)
-        print(f"Indices sauvegardés dans : {self.log_path / 'train_indices.npy'} et {self.log_path / 'val_indices.npy'}")
-        self.trainer.logger.experiment.log_artifact(local_path=str(self.log_path / 'train_indices.npy'),run_id=self.trainer.logger.run_id)
-        self.trainer.logger.experiment.log_artifact(local_path=str(self.log_path / 'val_indices.npy'),run_id=self.trainer.logger.run_id)
-
+        if self.verbose:
+            print(
+                f"Indices sauvegardés dans : {self.log_path / 'train_indices.npy'} et {self.log_path / 'val_indices.npy'}")
+        self.trainer.logger.experiment.log_artifact(local_path=str(self.log_path / 'train_indices.npy'),
+                                                    run_id=self.trainer.logger.run_id)
+        self.trainer.logger.experiment.log_artifact(local_path=str(self.log_path / 'val_indices.npy'),
+                                                    run_id=self.trainer.logger.run_id)
 
     def train(self):
         print("[Pipeline] Starting training")
@@ -169,6 +213,7 @@ class TrainPipeline:
             val_dataloaders=self.validation_loader
         )
         print("[Pipeline] Training completed")
+        return self.log_path
 
 
 if __name__ == '__main__':

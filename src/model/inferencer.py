@@ -1,12 +1,15 @@
 import os
-import torch
+
 import numpy as np
-from tqdm import tqdm
+import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetTXT import TXTDataset
 from src.model.pairvae.pl_pairvae import PlPairVAE
 from src.model.vae.pl_vae import PlVAE
+
 
 class BaseInferencer:
     def __init__(self, checkpoint_path, data_path, technique, material, conversion_dict_path=None, batch_size=1):
@@ -75,6 +78,7 @@ class BaseInferencer:
         batch['data_q'] = batch['data_q'].to(self.device)
         return batch
 
+
 class VAEInferencer(BaseInferencer):
     def load_model(self, path):
         return PlVAE.load_from_checkpoint(path)
@@ -90,6 +94,7 @@ class VAEInferencer(BaseInferencer):
                 y_arr = y_pred[i].cpu().numpy().flatten()
                 q_arr = q_pred[i].cpu().numpy().flatten()
                 self.save_pred(batch, i, q_arr, y_arr)
+
 
 class PairVAEInferencer(BaseInferencer):
     def __init__(self, checkpoint_path, data_path, technique, material, mode, conversion_dict_path=None, batch_size=1):
@@ -122,4 +127,3 @@ class PairVAEInferencer(BaseInferencer):
                     path = batch['path'][i]
                     name = os.path.splitext(os.path.basename(path))[0]
                 np.save(os.path.join(self.output_dir, f"prediction_{name}.npy"), stacked)
-
