@@ -3,7 +3,9 @@ import os
 import warnings
 
 import h5py
+import torch
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from src.dataset.transformations import *
 
@@ -16,6 +18,16 @@ class HDF5Dataset(Dataset):
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
         self.data_q = self.hdf['data_q']
         self.data_y = self.hdf['data_y']
+
+        required_keys = ['data_q', 'data_y']
+        missing = [k for k in required_keys if k not in self.hdf]
+        if missing:
+            raise RuntimeError(
+                f"Missing required datasets in HDF5 file: {missing}\n"
+                "Your HDF5 file is not compatible with PairVAE. "
+                "Refer to the README (section 2) and generate it using scripts/02_txtTOhdf5.py."
+            )
+
         if transform is not None:
             self.transformer_q = SequentialTransformer(transform["q"])
             self.transformer_y = SequentialTransformer(transform["y"])

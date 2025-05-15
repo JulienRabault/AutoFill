@@ -8,6 +8,7 @@ import yaml
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import MLFlowLogger
 from torch.utils.data import random_split, DataLoader
+from uniqpath import unique_path
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetPairH5 import PairHDF5Dataset
@@ -68,27 +69,7 @@ class TrainPipeline:
         return config
 
     def _safe_log_directory(self) -> Path:
-        base_dir = Path(self.config['experiment_name'])
-        run_name = self.config['run_name']
-
-        def extract_index(name: str) -> tuple[str, int]:
-            match = re.match(rf"^(.*?)(?:_(\d+))?$", name)
-            if match:
-                base, idx = match.groups()
-                return base, int(idx) if idx else 0
-            return name, 0
-
-        base_name, _ = extract_index(run_name)
-        existing = [p.name for p in base_dir.glob(f"{base_name}*") if p.is_dir()]
-
-        max_index = 0
-        for name in existing:
-            match = re.match(rf"^{re.escape(base_name)}(?:_(\d+))?$", name)
-            if match and match.group(1):
-                max_index = max(max_index, int(match.group(1)))
-
-        next_name = f"{base_name}_{max_index + 1}" if max_index > 0 or run_name == base_name else run_name
-        log_path = base_dir / next_name
+        log_path = unique_path(Path(self.config['experiment_name'], self.config['run_name']))
         log_path.mkdir(parents=True)
         return log_path
 

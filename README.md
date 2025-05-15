@@ -89,6 +89,8 @@ pip install -r requirements.txt # (Windows : .\env\Scripts\activate)
    `all_data.h5` + `metadata_dict.json`
 6. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du
    training PairVAE
+7. **[Recherche par grille (Grid Search)](#expert-recherche-par-grille-grid-search)** : optimisation des hyperparamètres
+   avec la recherche par grille intégrée.
 
 ### 1. Prétraitement CSV
 
@@ -237,12 +239,13 @@ pour cela.
 Arguments :
 
 ```bash
-python scripts/05_pair_txtTOhdf5.py \
-  --data_csv_path   data/metadata_clean.csv  \
-  --data_dir        data/txt/               \
-  --pad_size        900                     \
-  --final_output_file data/all_pair_data.h5 \
-  --json_output     data/pair_metadata_dict.json
+python scripts/03_train.py \
+  --mode pairvae \
+  --config config/pairvae.yml \
+  --name AUTOFILL_SAXS_PAIRVAE \
+  --hdf5_file data/all_data_pair.h5 \
+  --conversion_dict_path data/pair_metadata_dict.json \
+  --material ag
 ```
 
 > Les chemins dans `saxs_path` et `les_path` doivent être relatifs à `--data_dir`. Vous pouvez contrôler l’existence de
@@ -316,7 +319,15 @@ avec une combinaison unique de beta, latent_dim et batch_size.
 **2. Lancez la recherche par grille:**
 
 ```bash
-python scripts/03_train.py --mode vae --config config/vae.yaml --gridsearch
+python scripts/03_train.py \
+  --mode vae \
+  --gridsearch \
+  --config config/vae.yml \
+  --name AUTOFILL_SAXS_VAE \
+  --hdf5_file data/all_data.h5 \
+  --conversion_dict_path data/all_data.json \
+  --technique saxs \
+  --material ag
 ```
 
 - Chaque combinaison de paramètres sera testée séquentiellement.

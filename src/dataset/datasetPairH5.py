@@ -20,6 +20,15 @@ class PairHDF5Dataset(Dataset):
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
 
+        required_keys = ['data_q_saxs', 'data_y_saxs', 'data_q_les', 'data_y_les', 'csv_index']
+        missing = [k for k in required_keys if k not in self.hdf]
+        if missing:
+            raise RuntimeError(
+                f"Missing required datasets in HDF5 file: {missing}\n"
+                "Your HDF5 file is not compatible with PairVAE. "
+                "Refer to the README (section 5) and generate it using scripts/05_pair_txtTOhdf5.py."
+            )
+
         self.data_q_saxs = self.hdf['data_q_saxs']
         self.data_y_saxs = self.hdf['data_y_saxs']
         self.data_q_les = self.hdf['data_q_les']

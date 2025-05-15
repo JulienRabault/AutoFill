@@ -53,6 +53,15 @@ def main():
         print(f"Warning : la transformation {transform_dict[args.technique.lower()]} surcharge la config")
         print("#" * 50)
 
+    if args.mode == "pair_vae" and args.technique is not None:
+        raise ValueError("La technique ne peut pas être spécifiée pour le mode pair_vae")
+    if args.mode == "pair_vae":
+        transform = config['dataset']["transform"]
+        transform["y"].setdefault("y_saxs", transform_dict["saxs"]["Y"])
+        transform["y"].setdefault("y_les", transform_dict["les"]["Y"])
+        transform["q"].setdefault("q_saxs", transform_dict["saxs"]["Q"])
+        transform["q"].setdefault("q_les", transform_dict["les"]["Q"])
+
     config['model']['type'] = args.mode
     if args.hdf5_file is not None:
         config['dataset']['hdf5_file'] = args.hdf5_file
