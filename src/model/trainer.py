@@ -27,6 +27,7 @@ class TrainPipeline:
             print(yaml.dump(self.config, default_flow_style=False, sort_keys=False, allow_unicode=True))
             print("[Pipeline] Building components")
         self.log_path = self._safe_log_directory()
+        self.config['training']['output_dir'] = str(self.log_path)
         self.model, self.dataset, self.extra_callback_list = self._initialize_components()
         if self.verbose:
             print("[Pipeline] Preparing data loaders")
@@ -34,6 +35,7 @@ class TrainPipeline:
         if self.verbose:
             print("[Pipeline] Building trainer")
         self.trainer = self._configure_trainer()
+        self.model.save_hyperparameters()
         if self.verbose:
             print("[Pipeline] Preparing log directory")
         self.log_directory = self._setup_log_directory()

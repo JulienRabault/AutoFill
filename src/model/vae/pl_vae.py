@@ -9,13 +9,16 @@ from src.model.vae.submodel.registry import *
 class PlVAE(pl.LightningModule):
     def __init__(self, config):
         super(PlVAE, self).__init__()
-
-        self.config = config
+        if config is None and not hasattr(self, 'config'):
+            raise ValueError("Configuration dictionary is required for PlVAE.")
+        if config is not None:
+            self.config = config
 
         self.beta = config["training"]["beta"]
 
         model_class = self.config["model"]["vae_class"]
         self.model = MODEL_REGISTRY.get(model_class)(**self.config["model"]["args"])
+        self.save_hyperparameters()
 
     def forward(self, x):
         y = x["data_y"]
@@ -72,3 +75,10 @@ class PlVAE(pl.LightningModule):
                 "lr_scheduler": {
                     "scheduler": scheduler,
                     "interval": "epoch"}}
+
+    # def on_save_checkpoint(self, checkpoint):
+    #     checkpoint['config'] = self.config
+    #     return checkpoint
+    #
+    # def on_load_checkpoint(self, checkpoint):
+    #     self.config = checkpoint['config']

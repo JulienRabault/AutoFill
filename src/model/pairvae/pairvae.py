@@ -1,8 +1,7 @@
 import torch
-import yaml
 from torch import nn
 
-from src.model.vae.submodel.registry import *
+from src.model.vae.pl_vae import PlVAE
 
 
 class PairVAE(nn.Module):
@@ -11,45 +10,20 @@ class PairVAE(nn.Module):
     et alignement des espaces latents.
     """
 
-    def __init__(self, config, load_weights_VAE):
+    def __init__(self, config):
         super(PairVAE, self).__init__()
 
         self.config = config
-
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("========================================")
         print("INIT VAE SAXS")
-        if self.config["VAE_SAXS"]["path_config"] is not None:
-            with open(self.config["VAE_SAXS"]["path_config"], 'r') as file:
-                config_saxs = yaml.safe_load(file)["model"]["args"]
-        else:
-            config_saxs = self.config["VAE_SAXS"]["args"]
-        print(config_saxs)
-        vae_saxs_class = self.config["VAE_SAXS"]["vae_class"]
-        self.vae_saxs = MODEL_REGISTRY.get(vae_saxs_class)(**config_saxs)
-        if self.config["VAE_SAXS"]["path_checkpoint"] is not None and load_weights_VAE:
-            print("LOADING CKPT SAXS")
-            checkpoint = torch.load(self.config["VAE_SAXS"]["path_checkpoint"],
-                                    map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-            checkpoint['state_dict'] = {k[len("model."):]: v for k, v in checkpoint['state_dict'].items()}
-            self.vae_saxs.load_state_dict(checkpoint['state_dict'])
+
+        self.vae_saxs = PlVAE.load_from_checkpoint(self.config["VAE_SAXS"]["path_checkpoint"]).to(self.device)
         print("========================================")
 
         print("========================================")
         print("INIT VAE LES")
-        if self.config["VAE_LES"]["path_config"] is not None:
-            with open(self.config["VAE_LES"]["path_config"], 'r') as file:
-                config_les = yaml.safe_load(file)["model"]["args"]
-        else:
-            config_les = self.config["VAE_LES"]["args"]
-        print(config_les)
-        vae_les_class = self.config["VAE_LES"]["vae_class"]
-        self.vae_les = MODEL_REGISTRY.get(vae_les_class)(**config_les)
-        if self.config["VAE_LES"]["path_checkpoint"] is not None and load_weights_VAE:
-            print("LOADING CKPT LES")
-            checkpoint = torch.load(self.config["VAE_LES"]["path_checkpoint"],
-                                    map_location=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-            checkpoint['state_dict'] = {k[len("model."):]: v for k, v in checkpoint['state_dict'].items()}
-            self.vae_les.load_state_dict(checkpoint['state_dict'])
+        self.vae_les = PlVAE.load_from_checkpoint(self.config["VAE_SAXS"]["path_checkpoint"]).to(self.device)
         print("========================================")
 
     def forward(self, batch):
@@ -69,7 +43,8 @@ class PairVAE(nn.Module):
         # Domaine SAXS
         y_saxs = batch["data_y_saxs"]
         q_saxs = batch["data_q_saxs"]
-        output_saxs = self.vae_saxs(y=y_saxs, q=q_saxs, metadata=metadata)
+        batch_saxs = {"data_y": y_saxs, "data_q": q_saxs, "metadata": metadata}
+        output_saxs = self.vae_saxs(batch_saxs)
         recon_saxs = output_saxs["recon"]
         mu_saxs = output_saxs["mu"]
         logvar_saxs = output_saxs["logvar"]
@@ -78,7 +53,8 @@ class PairVAE(nn.Module):
         # Domaine LES
         y_les = batch["data_y_les"]
         q_les = batch["data_q_les"]
-        output_les = self.vae_les(y=y_les, q=q_les, metadata=metadata)
+        batch_les = {"data_y": y_les, "data_q": q_les, "metadata": metadata}
+        output_les = self.vae_les(batch_les)
         recon_les = output_les["recon"]
         mu_les = output_les["mu"]
         logvar_les = output_les["logvar"]

@@ -53,13 +53,13 @@ training:
 model:
   VAE_SAXS:
     vae_class: ResVAE
-    path_checkpoint: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_1/best.ckpt
-    path_config: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_1/config_model.yaml
+    path_checkpoint: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_grid_0_beta=0.001_latent_dim=64_batch_size=16/best.ckpt
+    path_config: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_grid_0_beta=0.001_latent_dim=64_batch_size=16/config_model.yaml
     args:
 
 
   VAE_LES:
     vae_class: ResVAE
-    path_checkpoint: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_1/best.ckpt
-    path_config: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_1/config_model.yaml
+    path_checkpoint: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_grid_0_beta=0.001_latent_dim=64_batch_size=16/best.ckpt
+    path_config: /mnt/data/WORK/Autofill/AUTOFILL_normalized/test_gpu_grid_0_beta=0.001_latent_dim=64_batch_size=16/config_model.yaml
     args:

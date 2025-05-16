@@ -17,8 +17,7 @@ class PlPairVAE(pl.LightningModule):
         super(PlPairVAE, self).__init__()
 
         self.config = config
-
-        self.model = PairVAE(self.config["model"], load_weights_VAE)
+        self.model = PairVAE(self.config["model"])
 
         self.barlow_twins_loss = BarlowTwinsLoss(self.config["training"]["lambda_param"])
 
