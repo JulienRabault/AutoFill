@@ -24,40 +24,6 @@ class BaseTransformer(ABC):
         }
         return {self.name or self.__class__.__name__: config}
 
-
-class StandardScaler(BaseTransformer):
-    name = "StandardScaler"
-
-    def __init__(self, mean=None, std=None):
-        self.no_fit = False
-        if mean is not None and std is not None:
-            if std <= 0:
-                raise ValueError("std must be positive.")
-        self.mean = mean
-        self.std = std
-        self.no_fit = True
-
-    def fit(self, data):
-        if not self.no_fit:
-            self.mean = np.mean(data)
-            self.std = np.std(data)
-        return self
-
-    def transform(self, data):
-        if self.mean is None or self.std is None:
-            raise ValueError("Scaler must be fitted before transformation.")
-        if self.std == 0:
-            return np.zeros_like(data)
-        return (data - self.mean) / self.std
-
-    def batch_transform(self, batch_data):
-        if self.mean is None or self.std is None:
-            raise ValueError("Scaler must be fitted before transformation.")
-        if self.std == 0:
-            return np.zeros_like(batch_data)
-        return (batch_data - self.mean) / self.std
-
-
 class MinMaxNormalizer(BaseTransformer):
     name = "MinMaxNormalizer"
 
@@ -135,7 +101,6 @@ class StrictlyPositiveTransformer(BaseTransformer):
     def batch_transform(self, data):
         data = np.asarray(data)
         return np.where(data <= 0, self.epsilon, data)
-
 
 class LogTransformer(BaseTransformer):
     name = "LogTransformer"
@@ -220,7 +185,6 @@ class SequentialTransformer:
 
     def parse_config(self, config):
         transformer_map = {
-            "StandardScaler": StandardScaler,
             "LogTransformer": LogTransformer,
             "StrictlyPositiveTransformer": StrictlyPositiveTransformer,
             "MinMaxNormalizer": MinMaxNormalizer,
