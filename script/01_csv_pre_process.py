@@ -7,9 +7,9 @@ import pandas as pd
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument("inputs", nargs='+', type=str, help="Chemins des fichiers source (plusieurs possibles)")
-parser.add_argument("output", type=str, help="Chemin du fichier de sortie")
-parser.add_argument("-s","sep", type=str, help="Seperateur pour les csv entrant", default=';')
+parser.add_argument("inputs", nargs='+', type=str, help="Chemins des fichiers CSV source (plusieurs possibles)")
+parser.add_argument("output", type=str, help="Chemin du fichier CSV de sortie")
+parser.add_argument("--sep", type=str, default=";", required=False, help="Séparateur utilisé dans les fichiers CSV en entrée.")
 args = parser.parse_args()
 
 all_rows = []

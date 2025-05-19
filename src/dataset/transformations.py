@@ -25,39 +25,6 @@ class BaseTransformer(ABC):
         return {self.name or self.__class__.__name__: config}
 
 
-class StandardScaler(BaseTransformer):
-    name = "StandardScaler"
-
-    def __init__(self, mean=None, std=None):
-        self.no_fit = False
-        if mean is not None and std is not None:
-            if std <= 0:
-                raise ValueError("std must be positive.")
-        self.mean = mean
-        self.std = std
-        self.no_fit = True
-
-    def fit(self, data):
-        if not self.no_fit:
-            self.mean = np.mean(data)
-            self.std = np.std(data)
-        return self
-
-    def transform(self, data):
-        if self.mean is None or self.std is None:
-            raise ValueError("Scaler must be fitted before transformation.")
-        if self.std == 0:
-            return np.zeros_like(data)
-        return (data - self.mean) / self.std
-
-    def batch_transform(self, batch_data):
-        if self.mean is None or self.std is None:
-            raise ValueError("Scaler must be fitted before transformation.")
-        if self.std == 0:
-            return np.zeros_like(batch_data)
-        return (batch_data - self.mean) / self.std
-
-
 class MinMaxNormalizer(BaseTransformer):
     name = "MinMaxNormalizer"
 
@@ -89,7 +56,11 @@ class MinMaxNormalizer(BaseTransformer):
             return np.zeros_like(batch_data)
         return (batch_data - self.min_val) / (self.max_val - self.min_val)
 
-
+    def invert_transform(self, data):
+        if self.min_val is None or self.max_val is None:
+            raise ValueError("Le normaliseur doit être ajusté (fit) avant l'inversion.")
+        return data * (self.max_val - self.min_val) + self.min_val
+        
 class PaddingTransformer(BaseTransformer):
     name = "PaddingTransformer"
 
@@ -115,6 +86,9 @@ class PaddingTransformer(BaseTransformer):
             transformed_batch.append(transformed)
         return np.array(transformed_batch)
 
+    def invert_transform(self, data):
+        return data
+
 class StrictlyPositiveTransformer(BaseTransformer):
     name = "StrictlyPositiveTransformer"
 
@@ -132,6 +106,8 @@ class StrictlyPositiveTransformer(BaseTransformer):
         data = np.asarray(data)
         return np.where(data <= 0, self.epsilon, data)
 
+    def invert_transform(self, data):
+        return data
 
 class LogTransformer(BaseTransformer):
     name = "LogTransformer"
@@ -150,25 +126,9 @@ class LogTransformer(BaseTransformer):
         data = np.asarray(data)
         return np.log(data + self.epsilon)
 
-
-class LogPlusTransformer(BaseTransformer):
-    name = "LogPlusTransformer"
-
-    def __init__(self, epsilon=1e-9):
-        self.epsilon = epsilon
-
-    def fit(self, data):
-        return self
-
-    def transform(self, data):
+    def invert_transform(self, data):
         data = np.asarray(data)
-        return np.log(data + 1 + self.epsilon)
-
-    def batch_transform(self, data):
-        data = np.asarray(data)
-        return np.log(data + 1 + self.epsilon)
-
-
+        return np.exp(data) - self.epsilon
 
 #################################################################################
 import numpy as np

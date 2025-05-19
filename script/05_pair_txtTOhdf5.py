@@ -20,7 +20,6 @@ class PairTextToHDF5Converter:
         self.hdf_cache = hdf_cache
         self.metadata_cols = [col for col in dataframe.columns if col not in exclude]
         self.conversion_dict = {col: {} for col in self.metadata_cols if dataframe[col].dtype == object}
-        print(self.conversion_dict)
         self.hdf_data = self._initialize_hdf_data()
         self.hdf_files = None
         self.final_output_file = final_output_file
@@ -208,18 +207,20 @@ class PairTextToHDF5Converter:
 import argparse
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Convert CSV metadata and text data to HDF5 format.")
-    parser.add_argument("--data_csv_path", type=str, required=True, help="Path to CSV metadata file.")
-    parser.add_argument("--data_dir", type=str, required=True, help="Base directory where text files are located.")
-    parser.add_argument("--pad_size", type=int, default=500, help="Padding size for time series.")
-    parser.add_argument("--final_output_file", type=str, default="data.h5", help="Output HDF5 file path.")
-    parser.add_argument("--json_output", type=str, default="data.json", help="Path to output JSON dictionary.")
+    parser = argparse.ArgumentParser(description="Convertir les métadonnées CSV et les données textuelles en format HDF5.")
+    parser.add_argument("--data_csv_path", type=str, required=True, help="Chemin vers le fichier de métadonnées CSV.")
+    parser.add_argument("--sep", type=str, default=";", required=False, help="Séparateur utilisé dans les fichiers CSV en entrée.")
+    parser.add_argument("--data_dir", type=str, required=True, help="Répertoire de base où sont situés les fichiers texte.")
+    parser.add_argument("--pad_size", type=int, default=500, help="Taille du padding pour les séries temporelles.")
+    parser.add_argument("--final_output_file", type=str, default="data.h5", help="Chemin du fichier HDF5 de sortie.")
+    parser.add_argument("--json_output", type=str, default="data.json", help="Chemin vers le fichier JSON de sortie (dictionnaire).")
+
     args = parser.parse_args()
 
     if not os.path.exists(args.data_csv_path):
         raise FileNotFoundError(f"CSV file not found: {args.data_csv_path}")
 
-    dataframe = pd.read_csv(args.data_csv_path)
+    dataframe = pd.read_csv(args.data_csv_path, sep=args.sep)
     converter = PairTextToHDF5Converter(
         dataframe=dataframe,
         data_dir=args.data_dir,
@@ -229,4 +230,4 @@ if __name__ == "__main__":
         pad_size=args.pad_size
     )
     converter.convert()
-    print(f"Data successfully converted to {os.path.abspath(args.final_output_file)}")
+    print(f"Données converties au format h5 : {args.final_output_file}")

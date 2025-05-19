@@ -215,4 +215,4 @@ if __name__ == "__main__":
         pad_size=args.pad_size
     )
     converter.convert()
-    print(f"Data successfully converted to {args.final_output_file}")
+    print(f"Données converties au format h5 : {args.final_output_file}")
