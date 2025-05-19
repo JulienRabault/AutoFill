@@ -212,7 +212,7 @@ python scripts/03_train.py \
     * `conversion_dict_path` : chemin vers le JSON de mapping.
     * `metadata_filters` : filtres à appliquer sur les métadonnées (ex. material, technique, type, shape).
     * `sample_frac` : fraction d’échantillonnage (entre 0.0 et 1.0).
-* **`transform`**
+* **`transforms_data`**
 
     * `q` et `y` – `PaddingTransformer.pad_size` doit correspondre à `pad_size` utilisé lors de la conversion `.txt`.
 * **`training`**

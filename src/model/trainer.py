@@ -7,11 +7,13 @@ import torch
 import yaml
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import MLFlowLogger
+from pydantic.experimental.pipeline import transform
 from torch.utils.data import random_split, DataLoader
 from uniqpath import unique_path
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetPairH5 import PairHDF5Dataset
+from src.dataset.transformations import SequentialTransformer
 from src.model.callbacks.inference_callback import InferencePlotCallback
 from src.model.callbacks.metrics_callback import MAEMetricCallback
 from src.model.pairvae.pl_pairvae import PlPairVAE
@@ -85,14 +87,23 @@ class TrainPipeline:
         callbacks = []
         if model_type.lower() == 'pair_vae':
             model = PlPairVAE(self.config)
-            dataset = PairHDF5Dataset(**self.config['dataset'])
+            transform_config = self.config.get('transforms_data', {})
+            dataset = PairHDF5Dataset(**self.config['dataset'],
+                                      transformer_q_saxs=SequentialTransformer(transform_config["q_saxs"]),
+                                      transformer_y_saxs=SequentialTransformer(transform_config["y_saxs"]),
+                                      transformer_q_les=SequentialTransformer(transform_config["q_les"]),
+                                      transformer_y_les=SequentialTransformer(transform_config["y_les"]))
             curves_config = {
                 'saxs': {'truth_key': 'data_y_saxs', 'pred_keys': ['recon_saxs', 'recon_les2saxs'], 'use_loglog': True},
                 'les': {'truth_key': 'data_y_les', 'pred_keys': ['recon_les', 'recon_saxs2les']}
             }
         elif model_type.lower() == 'vae':
             model = PlVAE(self.config)
-            dataset = HDF5Dataset(**self.config['dataset'])
+            transform_config = self.config.get('transforms_data', {})
+            assert 'q' in transform_config and 'y' in transform_config, "Missing 'q' or 'y' in transform config"
+            dataset = HDF5Dataset(**self.config['dataset'],
+                                  transformer_q=SequentialTransformer(transform_config["q"]),
+                                  transformer_y=SequentialTransformer(transform_config["y"]))
             curves_config = {'recon': {'truth_key': 'data_y', 'pred_keys': ["recon"],
                                        'use_loglog': self.config['training']['use_loglog']}}
             callbacks.append(MAEMetricCallback())
@@ -111,6 +122,9 @@ class TrainPipeline:
             callbacks.insert(0, InferencePlotCallback(curves_config=curves_config,
                                                       output_dir=self.log_path / "inference_results",
                                                       **train_cfg))
+
+        # Save transformer config
+        self.config['dataset']['transforms'] = dataset.transforms_to_dict()
 
         return model, dataset, callbacks
 

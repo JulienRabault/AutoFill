@@ -13,7 +13,11 @@ from src.dataset.transformations import *
 class PairHDF5Dataset(Dataset):
     def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
                  sample_frac=1, requested_metadata=[],
-                 transform=None, **kwargs):
+                 transformer_q_saxs=SequentialTransformer(),
+                transformer_y_saxs=SequentialTransformer(),
+                transformer_q_les=SequentialTransformer(),
+                transformer_y_les=SequentialTransformer(),
+                 **kwargs):
         """
         Optimized PyTorch Dataset for HDF5 files with selective metadata preprocessing
         """
@@ -35,16 +39,10 @@ class PairHDF5Dataset(Dataset):
         self.data_y_les = self.hdf['data_y_les']
         self.csv_index = self.hdf['csv_index']
 
-        if transform is not None:
-            self.transformer_q_saxs = SequentialTransformer(transform["q_saxs"])
-            self.transformer_y_saxs = SequentialTransformer(transform["y_saxs"])
-            self.transformer_q_les = SequentialTransformer(transform["q_les"])
-            self.transformer_y_les = SequentialTransformer(transform["y_les"])
-        else:
-            self.transformer_q_saxs = SequentialTransformer()
-            self.transformer_y_saxs = SequentialTransformer()
-            self.transformer_q_les = SequentialTransformer()
-            self.transformer_y_les = SequentialTransformer()
+        self.transformer_q_saxs = transformer_q_saxs
+        self.transformer_y_saxs = transformer_y_saxs
+        self.transformer_q_les = transformer_q_les
+        self.transformer_y_les = transformer_y_les
 
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
                              ['data_q_saxs', 'data_y_saxs', 'data_q_les', 'data_y_les', 'len', 'csv_index']]
@@ -183,3 +181,12 @@ class PairHDF5Dataset(Dataset):
     def close(self):
         """Close the HDF5 file"""
         self.hdf.close()
+
+    def transforms_to_dict(self):
+        """Convert the transformations to a dictionary format"""
+        return {
+            "q_saxs": self.transformer_q_saxs.to_dict(),
+            "y_saxs": self.transformer_y_saxs.to_dict(),
+            "q_les": self.transformer_q_les.to_dict(),
+            "y_les": self.transformer_y_les.to_dict()
+        }

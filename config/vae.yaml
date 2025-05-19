@@ -8,13 +8,13 @@ dataset:
   requested_metadata: [ "shape", "material" ]
   conversion_dict_path: "conversion_dict_saxs.json"
   sample_frac: 1.0
-  transform:
-    y:
-      PreprocessingSAXS:
-        pad_size: 54
-    q:
-      PreprocessingQ:
-        pad_size: 54
+transforms_data:
+  y:
+    PreprocessingSAXS:
+      pad_size: 54
+  q:
+    PreprocessingQ:
+      pad_size: 54
 
 training:
   num_gpus: 1

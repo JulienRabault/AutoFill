@@ -7,27 +7,27 @@ dataset:
   requested_metadata: [ "shape", "material" ]
   conversion_dict_path: "/mnt/data/WORK/Autofill/conversion_dict_all.json"
   sample_frac: 1.0
-  transform:
-    y_saxs:
-      PaddingTransformer:
-        pad_size: 54
-        value: 0
-      StrictlyPositiveTransformer: { }
-      LogTransformer: { }
-      MinMaxNormalizer: { }
-    y_les:
-      MinMaxNormalizer: { }
-      PaddingTransformer:
-        pad_size: 500
-        value: 0
-    q_les:
-      PaddingTransformer:
-        pad_size: 500
-        value: 0
-    q_saxs:
-      PaddingTransformer:
-        pad_size: 500
-        value: 0
+transforms_data:
+  y_saxs:
+    PaddingTransformer:
+      pad_size: 54
+      value: 0
+    StrictlyPositiveTransformer: { }
+    LogTransformer: { }
+    MinMaxNormalizer: { }
+  y_les:
+    MinMaxNormalizer: { }
+    PaddingTransformer:
+      pad_size: 500
+      value: 0
+  q_les:
+    PaddingTransformer:
+      pad_size: 500
+      value: 0
+  q_saxs:
+    PaddingTransformer:
+      pad_size: 500
+      value: 0
 
 training:
   num_gpus: 1

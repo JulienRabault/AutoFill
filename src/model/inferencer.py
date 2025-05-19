@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetTXT import TXTDataset
+from src.dataset.transformations import SequentialTransformer
 from src.model.pairvae.pl_pairvae import PlPairVAE
 from src.model.vae.pl_vae import PlVAE
 
@@ -76,6 +77,7 @@ class VAEInferencer(BaseInferencer):
                 outputs = self.model(batch)
                 y_pred = outputs["recon"].squeeze(dim=0)
                 q_pred = batch['data_q']
+                y_pred, q_pred = self.invert_transform(y_pred, q_pred)
                 for i in range(len(y_pred)):
                     y_arr = y_pred[i].cpu().numpy().flatten()
                     q_arr = q_pred[i].cpu().numpy().flatten()
@@ -91,6 +93,7 @@ class VAEInferencer(BaseInferencer):
                 conversion_dict_path=conversion_dict_path
             )
             self.format = 'h5'
+            self.invert_transform = self.dataset.invert_transforms_func()
         elif data_path.endswith(".csv"):
             import pandas as pd
             df = pd.read_csv(data_path)
@@ -105,6 +108,7 @@ class VAEInferencer(BaseInferencer):
                 }
             )
             self.format = 'csv'
+            self.invert_transform = self.dataset.invert_transforms_func()
         else:
             raise ValueError("Unsupported file format. Use .h5 or .csv")
 
@@ -131,6 +135,7 @@ class PairVAEInferencer(BaseInferencer):
                 raise ValueError(f"Unknown inference mode: {self.mode}")
 
             for i in range(len(y_pred)):
+                y_pred, q_pred = self.invert_transform(y_pred, q_pred)
                 y_arr = y_pred[i].cpu().numpy().flatten()
                 q_arr = q_pred[i].cpu().numpy().flatten()
                 stacked = np.stack([y_arr, q_arr], axis=1)
@@ -140,3 +145,43 @@ class PairVAEInferencer(BaseInferencer):
                     path = batch['path'][i]
                     name = os.path.splitext(os.path.basename(path))[0]
                 np.save(os.path.join(self.output_dir, f"prediction_{name}.npy"), stacked)
+
+    def compute_dataset(self, conversion_dict_path, data_path, input_dim):
+        if data_path.endswith(".h5"):
+            transform_config = self.config.get('transforms_data', {})
+            transformer_q_les = SequentialTransformer(transform_config["q_les"])
+            transformer_y_les = SequentialTransformer(transform_config["y_les"])
+            transformer_q_saxs = SequentialTransformer(transform_config["q_saxs"])
+            transformer_y_saxs = SequentialTransformer(transform_config["y_saxs"])
+            if self.mode == 'les_to_saxs':
+                self.dataset = HDF5Dataset(
+                    data_path,
+                    metadata_filters=self.config["dataset"]["metadata_filters"],
+                    conversion_dict_path=conversion_dict_path,
+                    transformer_q=transformer_q_les,
+                    transformer_y=transformer_y_les,
+                )
+                def invert_transform(y, q):
+                    y = transformer_y_saxs.invert_transform(y)
+                    q = transformer_q_saxs.invert_transform(q)
+                    return y, q
+                self.invert_transform = invert_transform
+            elif self.mode == 'saxs_to_les':
+                self.dataset = HDF5Dataset(
+                    data_path,
+                    metadata_filters=self.config["dataset"]["metadata_filters"],
+                    conversion_dict_path=conversion_dict_path,
+                    transformer_q=transformer_q_saxs,
+                    transformer_y=transformer_y_saxs,
+                )
+                def invert_transform(y, q):
+                    y = transformer_y_les.invert_transform(y)
+                    q = transformer_q_les.invert_transform(q)
+                    return y, q
+                self.invert_transform = invert_transform
+            else:
+                raise ValueError(f"Unknown mode: {self.mode}")
+            self.format = 'h5'
+            self.invert_transform = self.dataset.invert_transforms_func()
+        else:
+            raise ValueError("Unsupported file format. Use .h5")

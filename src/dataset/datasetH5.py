@@ -13,7 +13,7 @@ from src.dataset.transformations import *
 class HDF5Dataset(Dataset):
     def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
                  sample_frac=1, requested_metadata=[],
-                 transform=None):
+                 transformer_q=SequentialTransformer(), transformer_y=SequentialTransformer()):
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
         self.data_q = self.hdf['data_q']
@@ -27,13 +27,8 @@ class HDF5Dataset(Dataset):
                 "Your HDF5 file is not compatible with PairVAE. "
                 "Refer to the README (section 2) and generate it using scripts/02_txtTOhdf5.py."
             )
-
-        if transform is not None:
-            self.transformer_q = SequentialTransformer(transform["q"])
-            self.transformer_y = SequentialTransformer(transform["y"])
-        else:
-            self.transformer_q = SequentialTransformer()
-            self.transformer_y = SequentialTransformer()
+        self.transformer_q = transformer_q
+        self.transformer_y = transformer_y
         self.csv_index = self.hdf['csv_index']
         self.len = self.hdf['len']
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
@@ -150,3 +145,18 @@ class HDF5Dataset(Dataset):
     def close(self):
         """Close the HDF5 file"""
         self.hdf.close()
+
+    def transforms_to_dict(self):
+        """Convert the transformations to a dictionary format for saving"""
+        return {
+            "q": self.transformer_q.to_dict(),
+            "y": self.transformer_y.to_dict()
+        }
+
+    def invert_transforms_func(self):
+        """Return the inverse transformation functions for data_y and data_q"""
+        def func(y_arr, q_arr):
+            y_arr = self.transformer_y.inverse_transform(y_arr)
+            q_arr = self.transformer_q.inverse_transform(q_arr)
+            return y_arr, q_arr
+        return func
