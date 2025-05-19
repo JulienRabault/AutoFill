@@ -222,7 +222,6 @@ class SequentialTransformer:
         transformer_map = {
             "StandardScaler": StandardScaler,
             "LogTransformer": LogTransformer,
-            "LogPlusTransformer": LogPlusTransformer,
             "StrictlyPositiveTransformer": StrictlyPositiveTransformer,
             "MinMaxNormalizer": MinMaxNormalizer,
             "PaddingTransformer": PaddingTransformer,
@@ -249,5 +248,10 @@ class SequentialTransformer:
     def transform(self, data):
         for transformer in self.transformers:
             data = transformer.transform(data)
+        return data
+
+    def invert_transform(self, data):
+        for transformer in reversed(self.transformers):
+            data = transformer.invert_transform(data)
         return data
 
