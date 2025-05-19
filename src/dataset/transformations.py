@@ -28,15 +28,16 @@ class MinMaxNormalizer(BaseTransformer):
     name = "MinMaxNormalizer"
 
     def __init__(self, min_val=None, max_val=None):
-        self.no_fit = True
+        self.need_fit = True
         if min_val is not None and max_val is not None:
+            self.need_fit = False
             if min_val >= max_val:
                 raise ValueError("min_val must be less than max_val.")
         self.min_val = min_val
         self.max_val = max_val
 
     def fit(self, data):
-        if not self.no_fit:
+        if self.need_fit:
             self.min_val = np.min(data)
             self.max_val = np.max(data)
         return self
@@ -213,3 +214,8 @@ class SequentialTransformer:
             data = transformer.invert_transform(data)
         return data
 
+    def to_dict(self):
+        res= {}
+        for transformer in self.transformers:
+            res[transformer.name] = transformer.to_dict()
+        return res
