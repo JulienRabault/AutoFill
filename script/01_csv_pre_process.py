@@ -9,12 +9,13 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("inputs", nargs='+', type=str, help="Chemins des fichiers source (plusieurs possibles)")
 parser.add_argument("output", type=str, help="Chemin du fichier de sortie")
+parser.add_argument("-s","sep", type=str, help="Seperateur pour les csv entrant", default=';')
 args = parser.parse_args()
 
 all_rows = []
 
 for input_file in args.inputs:
-    df = pd.read_csv(input_file, sep=';', dtype=str)
+    df = pd.read_csv(input_file, sep=args.sep, dtype=str) 
 
 
     def extract_d_h(dimension):
@@ -23,12 +24,13 @@ for input_file in args.inputs:
             return float(match.group(1)), float(match.group(3))
         return None, None
 
+    if "dimension" in list(df.columns):
+        df['d'], df['h'] = zip(*df['dimension'].apply(extract_d_h))
+        df = df.drop(columns=['dimension'])
 
-    df['d'], df['h'] = zip(*df['dimension'].apply(extract_d_h))
+    if "concentration" in list(df.columns):
+        df['concentration'] = df['concentration'].astype(float)
 
-    df['concentration'] = df['concentration'].astype(float)
-
-    df = df.drop(columns=['dimension'])
 
     for _, row in tqdm(df.iterrows(), total=len(df), desc=f"Traitement de {input_file}"):
         raw_path = row['path'].replace('\\', '/')

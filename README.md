@@ -10,7 +10,7 @@
 ### Auteurs :
 
 - **Julien Rabault** (julien.rabault@irit.fr)
-- **Caroline De Pourtales** (caroline.de-pourtales@irit.fr)
+- **Caroline de Pourtalès** (caroline.de-pourtales@irit.fr)
 
 ## Structure du projet
 
@@ -104,11 +104,13 @@ cela prend environ 10h.
 
 - `<inputs>` : un ou plusieurs chemins vers des fichiers CSV (séparateur ;).
 - `<output>` : chemin du fichier CSV nettoyé de sortie (séparateur ,).
+- `-s <sep>` : séparateur des colonnes dans le csv
 
 ```bash
 python scripts/01_csv_pre_process.py \
   data/raw_csv/file1.csv data/raw_csv/file2.csv \
-  data/metadata_clean.csv
+  data/metadata_clean.csv \
+  -s ";"
 ```
 
 > **Exemple**: après exécution, le fichier `data/metadata_clean.csv` contient toutes les métadonnées normalisées. Vous
