@@ -12,7 +12,7 @@ args = parser.parse_args()
 df = pd.read_csv(args.csv)
 base = Path(args.basedir)
 
-path_cols = [col for col in df.columns if 'path' in col.lower()]
+path_cols = [col for col in df.columns if 'path' in col.lower() and 'optical' not in col.lower()]
 print(f"Colonnes contenant 'path' : {path_cols}")
 
 missing_per_column = {}
