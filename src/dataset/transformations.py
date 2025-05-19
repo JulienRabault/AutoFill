@@ -126,7 +126,7 @@ class LogTransformer(BaseTransformer):
 #################################################################################
 import numpy as np
 
-class BasePreprocessing:
+class BasePreprocessing(BaseTransformer):
     def __init__(self, config):
         self.pipeline = SequentialTransformer(config=config)
 
@@ -139,12 +139,6 @@ class BasePreprocessing:
 
     def batch_transform(self, batch_data):
         return np.array([self.transform(d) for d in batch_data])
-
-    def to_dict(self):
-        d = {}
-        for transformer in self.pipeline.transformers:
-            d = {**d, **transformer.to_dict()}
-        return d
 
 
 class PreprocessingSAXS(BasePreprocessing):
