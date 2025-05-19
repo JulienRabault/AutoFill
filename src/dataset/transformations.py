@@ -1,116 +1,98 @@
-import pickle
-
-import numpy as np
+from abc import ABC, abstractmethod
 
 
-class StrictlyPositiveTransformer:
-    def __init__(self, epsilon=1e-9):
-        self.epsilon = epsilon
+class BaseTransformer(ABC):
+    name = None
+
+    @abstractmethod
+    def fit(self, data):
+        pass
+
+    @abstractmethod
+    def transform(self, data):
+        pass
+
+    @abstractmethod
+    def batch_transform(self, batch_data):
+        pass
+
+    def to_dict(self):
+        config = {
+            k: getattr(self, k)
+            for k in vars(self)
+            if not k.startswith('_')
+        }
+        return {self.name or self.__class__.__name__: config}
+
+
+class StandardScaler(BaseTransformer):
+    name = "StandardScaler"
+
+    def __init__(self, mean=None, std=None):
+        self.no_fit = False
+        if mean is not None and std is not None:
+            if std <= 0:
+                raise ValueError("std must be positive.")
+        self.mean = mean
+        self.std = std
+        self.no_fit = True
 
     def fit(self, data):
-        # No fitting necessary; included for consistency with the API
+        if not self.no_fit:
+            self.mean = np.mean(data)
+            self.std = np.std(data)
         return self
 
     def transform(self, data):
-        data = np.asarray(data)
-        transformed = np.where(data <= 0, self.epsilon, data)
-        return transformed
-
-    def batch_transform(self, data):
-        data = np.asarray(data)
-        transformed = np.where(data <= 0, self.epsilon, data)
-        return transformed
-
-
-class LogTransformer:
-    def __init__(self, epsilon=1e-9):
-        self.epsilon = epsilon
-
-    def fit(self, data):
-        # No fitting necessary; included for consistency with the API
-        return self
-
-    def transform(self, data):
-        data = np.asarray(data)
-        transformed = np.log(data + self.epsilon)
-        return transformed
-
-    def batch_transform(self, data):
-        data = np.asarray(data)
-        transformed = np.log(data + self.epsilon)
-        return transformed
-
-
-class LogPlusTransformer:
-    def __init__(self, epsilon=1e-9):
-        self.epsilon = epsilon
-
-    def fit(self, data):
-        # No fitting necessary; included for consistency with the API
-        return self
-
-    def transform(self, data):
-        data = np.asarray(data)
-        transformed = np.log(data + 1 + self.epsilon)
-        return transformed
-
-    def batch_transform(self, data):
-        data = np.asarray(data)
-        transformed = np.log(data + 1 + self.epsilon)
-        return transformed
-
-
-class StandardScaler:
-    def __init__(self):
-        self.mean_ = None
-        self.std_ = None
-
-    def fit(self, data):
-        self.mean_ = np.mean(data)
-        self.std_ = np.std(data)
-        return self
-
-    def transform(self, data):
-        if self.mean_ is None or self.std_ is None:
+        if self.mean is None or self.std is None:
             raise ValueError("Scaler must be fitted before transformation.")
-        if self.std_ == 0:
+        if self.std == 0:
             return np.zeros_like(data)
-        return (data - self.mean_) / self.std_
+        return (data - self.mean) / self.std
 
     def batch_transform(self, batch_data):
-        if self.mean_ is None or self.std_ is None:
+        if self.mean is None or self.std is None:
             raise ValueError("Scaler must be fitted before transformation.")
-        if self.std_ == 0:
+        if self.std == 0:
             return np.zeros_like(batch_data)
-        return (batch_data - self.mean_) / self.std_
+        return (batch_data - self.mean) / self.std
 
 
-class MinMaxNormalizer:
-    def __init__(self):
-        self.min_ = None
-        self.max_ = None
+class MinMaxNormalizer(BaseTransformer):
+    name = "MinMaxNormalizer"
+
+    def __init__(self, min_val=None, max_val=None):
+        self.no_fit = True
+        if min_val is not None and max_val is not None:
+            if min_val >= max_val:
+                raise ValueError("min_val must be less than max_val.")
+        self.min_val = min_val
+        self.max_val = max_val
 
     def fit(self, data):
-        self.min_ = np.min(data)
-        self.max_ = np.max(data)
+        if not self.no_fit:
+            self.min_val = np.min(data)
+            self.max_val = np.max(data)
         return self
 
     def transform(self, data):
-        if self.min_ is None or self.max_ is None:
+        if self.min_val is None or self.max_val is None:
             raise ValueError("Le normaliseur doit être ajusté (fit) avant la transformation.")
-        if self.max_ == self.min_:
+        if self.max_val == self.min_val:
             return np.zeros_like(data)
-        return (data - self.min_) / (self.max_ - self.min_)
+        return (data - self.min_val) / (self.max_val - self.min_val)
 
     def batch_transform(self, batch_data):
-        if self.min_ is None or self.max_ is None:
+        if self.min_val is None or self.max_val is None:
             raise ValueError("Le normaliseur doit être ajusté (fit) avant la transformation.")
-        if self.max_ == self.min_:
+        if self.max_val == self.min_val:
             return np.zeros_like(batch_data)
-        return (batch_data - self.min_) / (self.max_ - self.min_)
+        return (batch_data - self.min_val) / (self.max_val - self.min_val)
 
 
-class PaddingTransformer:
+class PaddingTransformer(BaseTransformer):
+    name = "PaddingTransformer"
+
     def __init__(self, pad_size, value=0):
         self.pad_size = pad_size
         self.value = value
@@ -133,97 +115,111 @@ class PaddingTransformer:
             transformed_batch.append(transformed)
         return np.array(transformed_batch)
 
+class StrictlyPositiveTransformer(BaseTransformer):
+    name = "StrictlyPositiveTransformer"
 
-class PreprocessingSAXS:
+    def __init__(self, epsilon=1e-9):
+        self.epsilon = epsilon
+
+    def fit(self, data):
+        return self
+
+    def transform(self, data):
+        data = np.asarray(data)
+        return np.where(data <= 0, self.epsilon, data)
+
+    def batch_transform(self, data):
+        data = np.asarray(data)
+        return np.where(data <= 0, self.epsilon, data)
+
+
+class LogTransformer(BaseTransformer):
+    name = "LogTransformer"
+
+    def __init__(self, epsilon=1e-9):
+        self.epsilon = epsilon
+
+    def fit(self, data):
+        return self
+
+    def transform(self, data):
+        data = np.asarray(data)
+        return np.log(data + self.epsilon)
+
+    def batch_transform(self, data):
+        data = np.asarray(data)
+        return np.log(data + self.epsilon)
+
+
+class LogPlusTransformer(BaseTransformer):
+    name = "LogPlusTransformer"
+
+    def __init__(self, epsilon=1e-9):
+        self.epsilon = epsilon
+
+    def fit(self, data):
+        return self
+
+    def transform(self, data):
+        data = np.asarray(data)
+        return np.log(data + 1 + self.epsilon)
+
+    def batch_transform(self, data):
+        data = np.asarray(data)
+        return np.log(data + 1 + self.epsilon)
+
+
+
+#################################################################################
+import numpy as np
+
+class BasePreprocessing:
+    def __init__(self, config):
+        self.pipeline = SequentialTransformer(config=config)
+
+    def fit(self, data):
+        self.pipeline.fit(data)
+        return self
+
+    def transform(self, data):
+        return self.pipeline.transform(data)
+
+    def batch_transform(self, batch_data):
+        return np.array([self.transform(d) for d in batch_data])
+
+    def to_dict(self):
+        d = {}
+        for transformer in self.pipeline.transformers:
+            d = {**d, **transformer.to_dict()}
+        return d
+
+
+class PreprocessingSAXS(BasePreprocessing):
     def __init__(self, pad_size=54, value=0):
-        self.pipeline = SequentialTransformer(config={
+        config = {
             "PaddingTransformer": {"pad_size": pad_size, "value": value},
             "StrictlyPositiveTransformer": {},
             "LogTransformer": {},
             "MinMaxNormalizer": {}
-        })
-
-    def fit(self, data):
-        self.pipeline.fit(data)
-        return self
-
-    def transform(self, data):
-        return self.pipeline.transform(data)
-
-    def batch_transform(self, batch_data):
-        transformed_batch = []
-        for data in batch_data:
-            transformed_batch.append(self.transform(data))
-        return np.array(transformed_batch)
-
-    def save(self, filepath):
-        self.pipeline.save(filepath)
-
-    @staticmethod
-    def load(filepath):
-        preprocessing = PreprocessingSAXS()
-        preprocessing.pipeline = SequentialTransformer.load(filepath)
-        return preprocessing
+        }
+        super().__init__(config=config)
 
 
-class PreprocessingLES:
+class PreprocessingLES(BasePreprocessing):
     def __init__(self, pad_size, value=0):
-        self.pipeline = SequentialTransformer(config={
+        config = {
             "PaddingTransformer": {"pad_size": pad_size, "value": value},
             "MinMaxNormalizer": {}
-        })
-
-    def fit(self, data):
-        self.pipeline.fit(data)
-        return self
-
-    def transform(self, data):
-        return self.pipeline.transform(data)
-
-    def batch_transform(self, batch_data):
-        transformed = []
-        for d in batch_data:
-            transformed.append(self.transform(d))
-        return np.array(transformed)
-
-    def save(self, filepath):
-        self.pipeline.save(filepath)
-
-    @staticmethod
-    def load(filepath):
-        instance = PreprocessingLES(pad_size=0)
-        instance.pipeline = SequentialTransformer.load(filepath)
-        return instance
+        }
+        super().__init__(config=config)
 
 
-class PreprocessingQ:
+class PreprocessingQ(BasePreprocessing):
     def __init__(self, pad_size, value=0):
-        self.pipeline = SequentialTransformer(config={
-            "PaddingTransformer": {"pad_size": pad_size, "value": value},
-        })
-
-    def fit(self, data):
-        self.pipeline.fit(data)
-        return self
-
-    def transform(self, data):
-        return self.pipeline.transform(data)
-
-    def batch_transform(self, batch_data):
-        transformed = []
-        for d in batch_data:
-            transformed.append(self.transform(d))
-        return np.array(transformed)
-
-    def save(self, filepath):
-        self.pipeline.save(filepath)
-
-    @staticmethod
-    def load(filepath):
-        instance = PreprocessingLES(pad_size=0)
-        instance.pipeline = SequentialTransformer.load(filepath)
-        return instance
-
+        config = {
+            "PaddingTransformer": {"pad_size": pad_size, "value": value}
+        }
+        super().__init__(config=config)
 
 #################################################################################
 
@@ -267,11 +263,3 @@ class SequentialTransformer:
             data = transformer.transform(data)
         return data
 
-    def save(self, filepath):
-        with open(filepath, 'wb') as f:
-            pickle.dump(self, f)
-
-    @staticmethod
-    def load(filepath):
-        with open(filepath, 'rb') as f:
-            return pickle.load(f)
