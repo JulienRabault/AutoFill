@@ -104,7 +104,7 @@ cela prend environ 10h.
 
 - `<inputs>` : un ou plusieurs chemins vers des fichiers CSV (séparateur ;).
 - `<output>` : chemin du fichier CSV nettoyé de sortie (séparateur ,).
-- `-s <sep>` : séparateur des colonnes dans le csv
+- `--sep` : séparateur des colonnes dans le csv
 
 ```bash
 python scripts/01_csv_pre_process.py \
@@ -346,4 +346,4 @@ python scripts/03_train.py \
 Pour toute question ou problème, n’hésitez pas à contacter :
 
 - **Julien Rabault** (julien.rabault@irit.fr)
-- **Caroline De Pourtales** (caroline.de-pourtales@irit.fr)
+- **Caroline de Pourtalès** (caroline.de-pourtales@irit.fr)
