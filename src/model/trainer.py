@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 import lightning.pytorch as pl
@@ -7,7 +6,6 @@ import torch
 import yaml
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import MLFlowLogger
-from pydantic.experimental.pipeline import transform
 from torch.utils.data import random_split, DataLoader
 from uniqpath import unique_path
 

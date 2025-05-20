@@ -12,6 +12,18 @@ from src.dataset.transformations import Pipeline
 from src.model.pairvae.pl_pairvae import PlPairVAE
 from src.model.vae.pl_vae import PlVAE
 
+def move_to_device(batch, device):
+    if isinstance(batch, torch.Tensor):
+        return batch.to(device)
+    elif isinstance(batch, dict):
+        return {k: move_to_device(v, device) for k, v in batch.items()}
+    elif isinstance(batch, list):
+        return [move_to_device(v, device) for v in batch]
+    elif isinstance(batch, tuple):
+        return tuple(move_to_device(v, device) for v in batch)
+    else:
+        return batch
+
 
 class BaseInferencer:
     def __init__(self, checkpoint_path, data_path, hparams, conversion_dict_path=None, batch_size=32):
@@ -52,11 +64,6 @@ class BaseInferencer:
         filename = f"prediction_{name}.npy"
         np.save(os.path.join(self.output_dir, filename), stacked)
 
-    def _move_to_device(self, batch):
-        batch['data_y'] = batch['data_y'].to(self.device)
-        batch['data_q'] = batch['data_q'].to(self.device)
-        return batch
-
     def infer(self):
         self.infer_and_save()
         print(f"Inference results saved in {self.output_dir}")
@@ -73,7 +80,7 @@ class VAEInferencer(BaseInferencer):
         loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False)
         with torch.no_grad():
             for batch in tqdm(loader, desc="Inference per sample"):
-                batch = self._move_to_device(batch)
+                batch = move_to_device(batch, self.device)
                 outputs = self.model(batch)
                 y_pred = outputs["recon"].squeeze(dim=0)
                 q_pred = batch['data_q']
@@ -126,7 +133,7 @@ class PairVAEInferencer(BaseInferencer):
     def infer_and_save(self):
         loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=False)
         for batch in tqdm(loader, desc="PairVAE inference"):
-            batch = self._move_to_device(batch)
+            batch = move_to_device(batch, self.device)
             if self.mode == 'les_to_saxs':
                 y_pred, q_pred = self.model.les_to_saxs(batch)
             elif self.mode == 'saxs_to_les':

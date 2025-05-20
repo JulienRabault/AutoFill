@@ -84,12 +84,12 @@ pip install -r requirements.txt # (Windows : .\env\Scripts\activate)
    `all_data.h5` + `metadata_dict.json`
 3. **[Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5)** : filtre, configuration YAML →
    lancement du training VAE
-4. **[Inference (optionnelle)](#4-inference-optionnelle)** : analyse des résultats à partir des poids entraînés
-5. **[Conversion .txt → HDF5 (PairVAE)](#5-conversion-txt--hdf5-pour-pairvae)** : séries temporelles + métadonnées →
+4. **[Conversion .txt → HDF5 (PairVAE)](#5-conversion-txt--hdf5-pour-pairvae)** : séries temporelles + métadonnées →
    `all_data.h5` + `metadata_dict.json`
-6. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du
+5. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du
    training PairVAE
-7. **[Recherche par grille (Grid Search)](#expert-recherche-par-grille-grid-search)** : optimisation des hyperparamètres
+6. **[Inference (optionnelle)](#6-inference-optionnelle)** : analyse des résultats à partir des poids entraînés
+7. **[Expert: Grid Search](#expert-recherche-par-grille-grid-search)** : optimisation des hyperparamètres
    avec la recherche par grille intégrée.
 
 ### 1. Prétraitement CSV
@@ -97,8 +97,9 @@ pip install -r requirements.txt # (Windows : .\env\Scripts\activate)
 `01_csv_pre_process.py`
 
 Ce script fusionne et nettoie plusieurs fichiers CSV de métadonnées. Cette convertion tourne sur CPU et demande beaucoup
-de ressource pour aller vite. Utiliser `tmux` pour lancer le script en arrière plan. Par exemple pour 1.5M de `.txt`
-cela prend environ 10h.
+de ressource pour aller vite. 
+
+>Utiliser `tmux` pour lancer le script en arrière plan. Par exemple pour 1.5M de `.txt` cela prend environ 8h.
 
 **Arguments:**
 
@@ -228,14 +229,11 @@ python scripts/03_train.py \
 > **Note :** en dehors de ces clefs, tout autre paramètre dans le YAML n’est pas nécessairement safe à modifier si vous
 > débutez en IA. Respectez surtout la cohérence pad_size / input_dim et les chemins d’accès pour éviter les erreurs.
 
-### 4. Inference (optionnelle)
 
-...
-
-### 5. Entraînement du modèle PAIRVAE à partir du fichier HDF5 `03_train.py`
+### 4. Entraînement du modèle PAIRVAE à partir du fichier HDF5 `03_train.py`
 
 De la même manière que [Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py), vous pouvez convertir
-vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `05_pair_txtTOhdf5.py` est conçu
+vos séries temporelles en un fichier HDF5 pour l’entraînement du PairVAE. Le script `04_pair_txtTOhdf5.py` est conçu
 pour cela.
 
 Arguments :
@@ -274,7 +272,7 @@ Une fois la conversion terminée, vous obtenez :
 - `data/all_pair_data.h5` prêt pour l’entraînement ;
 - `data/pair_metadata_dict.json` contenant vos mappings catégoriels.
 
-### 6. Entraînement du modèle PAIRVAE
+### 5. Entraînement du modèle PAIRVAE
 
 L’entraînement du PairVAE se fait de la même manière
 que [Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5), mais avec un fichier HDF5
@@ -285,9 +283,77 @@ TODO
 Dans cette exmple `data/all_data.h5` et `data/metadata_dict.json` sont issus de l’étape précédente, et seront filtrés
 sur `technique=saxs` et `material=ag`.
 
+### 6. Inference (optionnelle)
+
+Le script `05_infer.py` permet de lancer l'inférence avec les modèles VAE ou PairVAE directement en ligne de commande. 
+
+**Utilisation générale** :
+```bash
+python scripts/05_infer.py \
+  --checkpoint <CHEMIN_CHECKPOINT> \
+  --data_path <FICHIER_DONNÉES> \
+  --conversion_dict_path <DICTIONNAIRE_CONVERSION> \
+  [--mode <MODE_CONVERSION>] \
+  [--batch_size <TAILLE_BATCH>]
+```
+
+**Arguments principaux** :
+
+| Argument | Obligatoire | Description |
+|----------|-------------|-------------|
+| `-c/--checkpoint` | ✓ | Chemin vers le fichier de checkpoint (.ckpt) |
+| `-d/--data_path` | ✓ | Chemin vers les données d'entrée (.h5 ou .csv) |
+| `-cdp/--conversion_dict_path` | HDF5 only | Chemin vers le JSON de conversion des métadonnées |
+| `--mode` | PairVAE only | `les_to_saxs` ou `saxs_to_les` pour le PairVAE |
+| `-bs/--batch_size` | ❌ | Taille de batch (défaut: 32) |
+
+**Exemple pour VAE** :
+```bash
+python scripts/05_infer.py \
+  --checkpoint logs/vae_model.ckpt \
+  --data_path data/new_data.h5 \
+  --conversion_dict_path data/metadata_dict.json \
+  --batch_size 64
+```
+
+**Exemple pour PairVAE** :
+```bash
+python scripts/05_infer.py \
+  --checkpoint logs/pairvae_model.ckpt \
+  --data_path data/pair_data.h5 \
+  --conversion_dict_path data/pair_metadata_dict.json \
+  --mode les_to_saxs \
+  --batch_size 32
+```
+
+> **Note** : Pour les fichiers HDF5, le paramètre `--conversion_dict_path` est obligatoire. Le script générera une erreur explicite si ce paramètre est manquant.
+#### Sorties
+
+Les prédictions sont sauvegardées dans le dossier `inference_outputs` sous forme de fichiers `.npy` :
+- Format : tableau NumPy de shape `(N, 2)` où `N` = longueur de la série temporelle
+- Colonne 0 : valeurs prédites (`y`)
+- Colonne 1 : vecteur q correspondant (`q`)
+
+```
+prediction_12345.npy  # Nom généré à partir de l'index CSV ou du nom du fichier
+├── [ [y1, q1],
+│     [y2, q2],
+│     ...            ]
+└── shape (pad_size, 2)
+```
+
+#### Formats supportés
+
+| Modèle    | Formats d'entrée | Modes (PairVAE)       |
+|-----------|------------------|-----------------------|
+| VAE       | `.h5`, `.csv`    | -                     |
+| PairVAE   | `.h5` uniquement | `les_to_saxs`, `saxs_to_les` |
+
+> **Note** : Pour le VAE avec des données CSV, assurez-vous que le fichier contient une colonne `path` pointant vers les fichiers `.txt` à prédire.
+
 ---
 
-### Expert : Recherche par grille (Grid Search)
+### Expert: Grid Search
 
 Vous pouvez automatiser l’optimisation des hyperparamètres grâce à la recherche par grille intégrée.
 

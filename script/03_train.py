@@ -8,7 +8,6 @@ import sys
 import yaml
 
 from src.model.grid_search import GridSearch
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.model.trainer import TrainPipeline
 
