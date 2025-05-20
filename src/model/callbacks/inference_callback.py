@@ -69,9 +69,8 @@ class InferencePlotCallback(pl.Callback):
                 truth = truth.squeeze(1) if isinstance(truth, torch.Tensor) and truth.ndim > 1 else truth
                 preds = {}
                 for key in cfg['pred_keys']:
-                    if "recon" in key :
-                        val = raw_outputs[key]
-                        preds[key] = val.squeeze(1) if isinstance(val, torch.Tensor) and val.ndim > 1 else val
+                    val = raw_outputs[key]
+                    preds[key] = val.squeeze(1) if isinstance(val, torch.Tensor) and val.ndim > 1 else val
                 self._plot(trainer, name, truth, preds, cfg.get('use_loglog', False))
         model.train()
 

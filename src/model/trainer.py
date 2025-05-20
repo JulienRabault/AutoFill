@@ -13,7 +13,7 @@ from uniqpath import unique_path
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetPairH5 import PairHDF5Dataset
-from src.dataset.transformations import SequentialTransformer
+from src.dataset.transformations import Pipeline
 from src.model.callbacks.inference_callback import InferencePlotCallback
 from src.model.callbacks.metrics_callback import MAEMetricCallback
 from src.model.pairvae.pl_pairvae import PlPairVAE
@@ -89,10 +89,10 @@ class TrainPipeline:
             model = PlPairVAE(self.config)
             transform_config = self.config.get('transforms_data', {})
             dataset = PairHDF5Dataset(**self.config['dataset'],
-                                      transformer_q_saxs=SequentialTransformer(transform_config["q_saxs"]),
-                                      transformer_y_saxs=SequentialTransformer(transform_config["y_saxs"]),
-                                      transformer_q_les=SequentialTransformer(transform_config["q_les"]),
-                                      transformer_y_les=SequentialTransformer(transform_config["y_les"]))
+                                      transformer_q_saxs=Pipeline(transform_config["q_saxs"]),
+                                      transformer_y_saxs=Pipeline(transform_config["y_saxs"]),
+                                      transformer_q_les=Pipeline(transform_config["q_les"]),
+                                      transformer_y_les=Pipeline(transform_config["y_les"]))
             curves_config = {
                 'saxs': {'truth_key': 'data_y_saxs', 'pred_keys': ['recon_saxs', 'recon_les2saxs'], 'use_loglog': True},
                 'les': {'truth_key': 'data_y_les', 'pred_keys': ['recon_les', 'recon_saxs2les']}
@@ -102,8 +102,8 @@ class TrainPipeline:
             transform_config = self.config.get('transforms_data', {})
             assert 'q' in transform_config and 'y' in transform_config, "Missing 'q' or 'y' in transform config"
             dataset = HDF5Dataset(**self.config['dataset'],
-                                  transformer_q=SequentialTransformer(transform_config["q"]),
-                                  transformer_y=SequentialTransformer(transform_config["y"]))
+                                  transformer_q=Pipeline(transform_config["q"]),
+                                  transformer_y=Pipeline(transform_config["y"]))
             curves_config = {'recon': {'truth_key': 'data_y', 'pred_keys': ["recon"],
                                        'use_loglog': self.config['training']['use_loglog']}}
             callbacks.append(MAEMetricCallback())

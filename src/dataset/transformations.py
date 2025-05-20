@@ -1,221 +1,210 @@
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Sequence, Union
+import numpy as np
 
-
-class BaseTransformer(ABC):
-    name = None
+# region Base Transformer
+class Transformer(ABC):
+    name: str
 
     @abstractmethod
-    def fit(self, data):
+    def fit(self, data: np.ndarray) -> "Transformer":
         pass
 
     @abstractmethod
-    def transform(self, data):
+    def transform(self, data: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
-    def batch_transform(self, batch_data):
+    def invert(self, data: np.ndarray) -> np.ndarray:
         pass
 
-    def to_dict(self):
-        config = {
-            k: getattr(self, k)
-            for k in vars(self)
-            if not k.startswith('_')
-        }
-        return {self.name or self.__class__.__name__: config}
+    def get_config(self) -> Dict[str, Any]:
+        init_params = self.__init__.__code__.co_varnames[1:self.__init__.__code__.co_argcount]
+        return {self.name: {k: getattr(self, k) for k in init_params if hasattr(self, k)}}
+# endregion
 
-class MinMaxNormalizer(BaseTransformer):
-    name = "MinMaxNormalizer"
+# region Basic Transformers
+class MinMaxScaler(Transformer):
+    name = "MinMaxScaler"
 
-    def __init__(self, min_val=None, max_val=None):
-        self.need_fit = True
-        if min_val is not None and max_val is not None:
-            self.need_fit = False
-            if min_val >= max_val:
-                raise ValueError("min_val must be less than max_val.")
+    def __init__(self, min_val: Optional[float] = None, max_val: Optional[float] = None):
+        self._fitted = False
         self.min_val = min_val
         self.max_val = max_val
 
-    def fit(self, data):
-        if self.need_fit:
-            self.min_val = np.min(data)
-            self.max_val = np.max(data)
+    def fit(self, data: np.ndarray) -> "MinMaxScaler":
+        if self.min_val is None or self.max_val is None:
+            self.min_val = float(np.min(data))
+            self.max_val = float(np.max(data))
+        if self.min_val >= self.max_val:
+            raise ValueError("min_val must be less than max_val.")
+        self._fitted = True
         return self
 
-    def transform(self, data):
-        if self.min_val is None or self.max_val is None:
-            raise ValueError("Le normaliseur doit être ajusté (fit) avant la transformation.")
+    def transform(self, data: np.ndarray) -> np.ndarray:
+        if not self._fitted:
+            raise ValueError("Scaler must be fitted before transform.")
         if self.max_val == self.min_val:
             return np.zeros_like(data)
         return (data - self.min_val) / (self.max_val - self.min_val)
 
-    def batch_transform(self, batch_data):
-        if self.min_val is None or self.max_val is None:
-            raise ValueError("Le normaliseur doit être ajusté (fit) avant la transformation.")
-        if self.max_val == self.min_val:
-            return np.zeros_like(batch_data)
-        return (batch_data - self.min_val) / (self.max_val - self.min_val)
-
-    def invert_transform(self, data):
-        if self.min_val is None or self.max_val is None:
-            raise ValueError("Le normaliseur doit être ajusté (fit) avant l'inversion.")
+    def invert(self, data: np.ndarray) -> np.ndarray:
+        if not self._fitted:
+            raise ValueError("Scaler must be fitted before invert.")
         return data * (self.max_val - self.min_val) + self.min_val
 
-class PaddingTransformer(BaseTransformer):
+class Padding(Transformer):
     name = "PaddingTransformer"
 
-    def __init__(self, pad_size, value=0):
+    def __init__(self, pad_size: int, value: float = 0):
         self.pad_size = pad_size
         self.value = value
 
-    def fit(self, data):
+    def fit(self, data: np.ndarray) -> "Padding":
         return self
 
-    def transform(self, data):
-        if len(data) >= self.pad_size:
-            return data[:self.pad_size]
-        return np.pad(data, (0, self.pad_size - len(data)), constant_values=self.value)
+    def transform(self, data: np.ndarray) -> np.ndarray:
+        length = data.shape[-1]
+        if length >= self.pad_size:
+            return data[..., : self.pad_size]
+        pad_width = [(0, 0)] * data.ndim
+        pad_width[-1] = (0, self.pad_size - length)
+        return np.pad(data, pad_width, constant_values=self.value)
 
-    def batch_transform(self, batch_data):
-        transformed_batch = []
-        for data in batch_data:
-            if len(data) >= self.pad_size:
-                transformed = data[:self.pad_size]
-            else:
-                transformed = np.pad(data, (0, self.pad_size - len(data)), constant_values=self.value)
-            transformed_batch.append(transformed)
-        return np.array(transformed_batch)
+    def invert(self, data: np.ndarray) -> np.ndarray:
+        return data
 
-class StrictlyPositiveTransformer(BaseTransformer):
+class EnsurePositive(Transformer):
     name = "StrictlyPositiveTransformer"
 
-    def __init__(self, epsilon=1e-9):
+    def __init__(self, epsilon: float = 1e-9):
         self.epsilon = epsilon
 
-    def fit(self, data):
+    def fit(self, data: np.ndarray) -> "EnsurePositive":
         return self
 
-    def transform(self, data):
-        data = np.asarray(data)
+    def transform(self, data: np.ndarray) -> np.ndarray:
         return np.where(data <= 0, self.epsilon, data)
 
-    def batch_transform(self, data):
-        data = np.asarray(data)
-        return np.where(data <= 0, self.epsilon, data)
+    def invert(self, data: np.ndarray) -> np.ndarray:
+        return data
 
-class LogTransformer(BaseTransformer):
+class Log(Transformer):
     name = "LogTransformer"
 
-    def __init__(self, epsilon=1e-9):
+    def __init__(self, epsilon: float = 1e-9):
         self.epsilon = epsilon
 
-    def fit(self, data):
+    def fit(self, data: np.ndarray) -> "Log":
         return self
 
-    def transform(self, data):
-        data = np.asarray(data)
+    def transform(self, data: np.ndarray) -> np.ndarray:
         return np.log(data + self.epsilon)
 
-    def batch_transform(self, data):
-        data = np.asarray(data)
-        return np.log(data + self.epsilon)
-
-    def invert_transform(self, data):
-        data = np.asarray(data)
+    def invert(self, data: np.ndarray) -> np.ndarray:
         return np.exp(data) - self.epsilon
+# endregion
 
-#################################################################################
-import numpy as np
+# region Preprocessing Base
+class PreprocessingBase(Transformer):
+    def __init__(self, pad_size: int, value: float = 0):
+        self.pad_size = pad_size
+        self.value = value
 
-class BasePreprocessing(BaseTransformer):
-    def __init__(self, config):
-        self.pipeline = SequentialTransformer(config=config)
+    def transform(self, data: np.ndarray) -> np.ndarray:
+        return self.pipeline.transform(data)
 
-    def fit(self, data):
+    def invert(self, data: np.ndarray) -> np.ndarray:
+        return self.pipeline.invert(data)
+
+    def fit(self, data: np.ndarray):
         self.pipeline.fit(data)
         return self
 
-    def transform(self, data):
-        return self.pipeline.transform(data)
+# endregion
 
-    def batch_transform(self, batch_data):
-        return np.array([self.transform(d) for d in batch_data])
+# region Preprocessing Pipelines
+class PreprocessingLES(PreprocessingBase):
+    name = "PreprocessingLES"
 
+    def __init__(self, pad_size: int, value: float = 0):
+        super().__init__(pad_size, value)
+        self.pipeline = Pipeline([
+            Padding(pad_size, value),
+            MinMaxScaler(),
+        ])
 
-class PreprocessingSAXS(BasePreprocessing):
-    def __init__(self, pad_size=54, value=0):
-        config = {
-            "PaddingTransformer": {"pad_size": pad_size, "value": value},
-            "StrictlyPositiveTransformer": {},
-            "LogTransformer": {},
-            "MinMaxNormalizer": {}
-        }
-        super().__init__(config=config)
+class PreprocessingSAXS(PreprocessingBase):
+    name = "PreprocessingSAXS"
 
+    def __init__(self, pad_size: int = 54, value: float = 0):
+        super().__init__(pad_size, value)
+        self.pipeline = Pipeline([
+            Padding(pad_size, value),
+            EnsurePositive(),
+            Log(),
+            MinMaxScaler(),
+        ])
 
-class PreprocessingLES(BasePreprocessing):
-    def __init__(self, pad_size, value=0):
-        config = {
-            "PaddingTransformer": {"pad_size": pad_size, "value": value},
-            "MinMaxNormalizer": {}
-        }
-        super().__init__(config=config)
+class PreprocessingQ(PreprocessingBase):
+    name = "PreprocessingQ"
 
+    def __init__(self, pad_size: int, value: float = 0):
+        super().__init__(pad_size, value)
+        self.pipeline = Pipeline([
+            Padding(pad_size, value),
+        ])
 
-class PreprocessingQ(BasePreprocessing):
-    def __init__(self, pad_size, value=0):
-        config = {
-            "PaddingTransformer": {"pad_size": pad_size, "value": value}
-        }
-        super().__init__(config=config)
+# endregion
 
-#################################################################################
+# region Pipeline
+class Pipeline:
+    transformer_map = {
+        MinMaxScaler.name: MinMaxScaler,
+        Padding.name: Padding,
+        EnsurePositive.name: EnsurePositive,
+        Log.name: Log,
+        PreprocessingLES.name: PreprocessingLES,
+        PreprocessingSAXS.name: PreprocessingSAXS,
+        PreprocessingQ.name: PreprocessingQ,
+    }
 
-class SequentialTransformer:
-    def __init__(self, config=None):
-        if config is not None:
-            self.transformers = self.parse_config(config)
+    def __init__(self, config_or_steps: Union[Sequence[Transformer], Dict[str, Dict[str, Any]]]):
+        if isinstance(config_or_steps, dict):
+            steps: List[Transformer] = []
+            for name, params in config_or_steps.items():
+                if name not in self.transformer_map:
+                    raise ValueError(f"Unknown transformer: {name}")
+                steps.append(self.transformer_map[name](**params))
+            self.steps = steps
         else:
-            self.transformers = []
+            self.steps = list(config_or_steps)
 
-    def parse_config(self, config):
-        transformer_map = {
-            "LogTransformer": LogTransformer,
-            "StrictlyPositiveTransformer": StrictlyPositiveTransformer,
-            "MinMaxNormalizer": MinMaxNormalizer,
-            "PaddingTransformer": PaddingTransformer,
-            "PreprocessingSAXS": PreprocessingSAXS,
-            "PreprocessingLES": PreprocessingLES,
-            "PreprocessingQ": PreprocessingQ,
-        }
-        transformers = []
-        for transform_name, params in config.items():
-            if transform_name in transformer_map:
-                transformers.append(transformer_map[transform_name](**params))
-            else:
-                raise ValueError(f"Transformateur inconnu : {transform_name}")
-        return transformers
+    def fit(self, data: Union[np.ndarray, Sequence[np.ndarray]]) -> "Pipeline":
+        array = np.array(data)
+        for step in self.steps:
+            step.fit(array)
+            array = step.transform(array)
+        return self
 
-    def fit(self, all_data):
-        fitted_transformers = []
-        for transformer in self.transformers:
-            fitted_transformer = transformer.fit(all_data)
-            fitted_transformers.append(fitted_transformer)
-            all_data = fitted_transformer.batch_transform(all_data)
-        self.transformers = fitted_transformers
+    def transform(self, data: np.ndarray) -> np.ndarray:
+        array = data
+        for step in self.steps:
+            array = step.transform(array)
+        return array
 
-    def transform(self, data):
-        for transformer in self.transformers:
-            data = transformer.transform(data)
-        return data
+    def batch_transform(self, batch: Sequence[np.ndarray]) -> np.ndarray:
+        return np.array([self.transform(item) for item in batch])
 
-    def invert_transform(self, data):
-        for transformer in reversed(self.transformers):
-            data = transformer.invert_transform(data)
-        return data
+    def invert(self, data: np.ndarray) -> np.ndarray:
+        array = data
+        for step in reversed(self.steps):
+            array = step.invert(array)
+        return array
 
-    def to_dict(self):
-        res= {}
-        for transformer in self.transformers:
-            res[transformer.name] = transformer.to_dict()
-        return res
+    def to_dict(self) -> Dict[str, Any]:
+        merged: Dict[str, Any] = {}
+        for step in self.steps:
+            merged.update(step.get_config())
+        return merged
+# endregion

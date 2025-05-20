@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from src.dataset.datasetH5 import HDF5Dataset
 from src.dataset.datasetTXT import TXTDataset
-from src.dataset.transformations import SequentialTransformer
+from src.dataset.transformations import Pipeline
 from src.model.pairvae.pl_pairvae import PlPairVAE
 from src.model.vae.pl_vae import PlVAE
 
@@ -149,10 +149,10 @@ class PairVAEInferencer(BaseInferencer):
     def compute_dataset(self, conversion_dict_path, data_path, input_dim):
         if data_path.endswith(".h5"):
             transform_config = self.config.get('transforms_data', {})
-            transformer_q_les = SequentialTransformer(transform_config["q_les"])
-            transformer_y_les = SequentialTransformer(transform_config["y_les"])
-            transformer_q_saxs = SequentialTransformer(transform_config["q_saxs"])
-            transformer_y_saxs = SequentialTransformer(transform_config["y_saxs"])
+            transformer_q_les = Pipeline(transform_config["q_les"])
+            transformer_y_les = Pipeline(transform_config["y_les"])
+            transformer_q_saxs = Pipeline(transform_config["q_saxs"])
+            transformer_y_saxs = Pipeline(transform_config["y_saxs"])
             if self.mode == 'les_to_saxs':
                 self.dataset = HDF5Dataset(
                     data_path,

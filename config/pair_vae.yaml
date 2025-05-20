@@ -9,23 +9,23 @@ dataset:
   sample_frac: 1.0
 transforms_data:
   y_saxs:
-    PaddingTransformer:
+    Padding:
       pad_size: 54
       value: 0
-    StrictlyPositiveTransformer: { }
-    LogTransformer: { }
-    MinMaxNormalizer: { }
+    EnsurePositive: { }
+    Log: { }
+    MinMaxScaler: { }
   y_les:
-    MinMaxNormalizer: { }
-    PaddingTransformer:
+    MinMaxScaler: { }
+    Padding:
       pad_size: 500
       value: 0
   q_les:
-    PaddingTransformer:
+    Padding:
       pad_size: 500
       value: 0
   q_saxs:
-    PaddingTransformer:
+    Padding:
       pad_size: 500
       value: 0
 

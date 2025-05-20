@@ -7,9 +7,9 @@ import sys
 
 import yaml
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from src.model.grid_search import GridSearch
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.model.trainer import TrainPipeline
 
 transform_dict = {"les": {"Y": {"PreprocessingLES": {"pad_size": 500}}, "Q": {"PreprocessingQ": {"pad_size": 500}}},
