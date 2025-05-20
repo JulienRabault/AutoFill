@@ -83,27 +83,19 @@ class InferencePlotCallback(pl.Callback):
             use_loglog: bool,
     ) -> None:
         indices = sample(range(len(truth)), min(self.num_samples, len(truth)))
-        cols = 1 + len(preds)
-        fig, axs = plt.subplots(len(indices), cols, figsize=(5 * cols, 4 * len(indices)))
-        axs = axs if axs.ndim > 1 else axs.reshape(len(indices), cols)
+        fig, axs = plt.subplots(len(indices)//2, 2, figsize=(15, 10 * len(indices)//2))
+        axs = axs.ravel()
         for row, i in enumerate(indices):
-            ax_truth = axs[row, 0]
-            plot_truth = ax_truth.plot
-            plot_truth(truth[i].cpu().numpy(), label=f"{name} truth")
-            ax_truth.set_title(f"{name} truth {i}")
-            if use_loglog:
-                ax_truth.set_xscale('log')
-            ax_truth.legend()
-            ax_truth.grid(True)
-            for col, (k, v) in enumerate(preds.items(), start=1):
-                ax = axs[row, col]
-                plot_fn = ax.plot
+            ax = axs[row]
+            plot_fn = ax.plot
+            plot_fn(truth[i].cpu().numpy(), label=f"{name} truth")
+            for (k, v) in preds.items():
                 plot_fn(v[i].cpu().numpy(), label=k)
-                ax.set_title(f"{k} {i}")
-                if use_loglog:
-                    ax.set_xscale('log')
-                ax.legend()
-                ax.grid(True)
+            if use_loglog:
+                ax.set_xscale('log')
+            ax.set_title(f"{name} truth vs recon {i}")
+            ax.legend()
+            ax.grid(True)
         plt.tight_layout()
         if hasattr(trainer.logger, "experiment"):
             trainer.logger.experiment.log_figure(trainer.logger.run_id, fig, artifact_file=self.artifact_file)

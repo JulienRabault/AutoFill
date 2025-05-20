@@ -169,7 +169,7 @@ class Pipeline:
         PreprocessingQ.name: PreprocessingQ,
     }
 
-    def __init__(self, config_or_steps: Union[Sequence[Transformer], Dict[str, Dict[str, Any]]]):
+    def __init__(self, config_or_steps: Union[Sequence[Transformer], Dict[str, Dict[str, Any]]]= {}):
         if isinstance(config_or_steps, dict):
             steps: List[Transformer] = []
             for name, params in config_or_steps.items():

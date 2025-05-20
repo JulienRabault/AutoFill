@@ -13,7 +13,7 @@ from src.dataset.transformations import *
 class HDF5Dataset(Dataset):
     def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
                  sample_frac=1, requested_metadata=[],
-                 transformer_q=SequentialTransformer(), transformer_y=SequentialTransformer()):
+                 transformer_q=Pipeline(), transformer_y=Pipeline()):
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
         self.data_q = self.hdf['data_q']
