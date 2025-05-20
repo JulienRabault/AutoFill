@@ -1,17 +1,17 @@
 experiment_name: "exp_final"
-run_name: test_saxs
+run_name: test_les
 mlflow_uri: https://mlflowts.irit.fr/
 dataset:
   hdf5_file: "/projects/pnria/caroline/test.h5"
   metadata_filters:
     material: [ "ag" ]
-    technique: [ "saxs" ]
+    technique: [ "les" ]
   requested_metadata: [ "shape", "material" ]
   conversion_dict_path: "/projects/pnria/caroline/test.json"
   sample_frac: 1.0
 transforms_data:
   y:
-    PreprocessingSAXS:
+    PreprocessingLES:
       pad_size: 500
   q:
     PreprocessingQ:
@@ -24,10 +24,10 @@ training:
   patience: 50
   use_loglog: True
 
-  batch_size: 16
+  batch_size: 64
   num_workers: 8
 
-  beta: 0.000001
+  beta: 0.00001
 
   max_lr: 0.0001
   T_max: 150
@@ -40,9 +40,9 @@ model:
     output_channels: 1
     dilation: 1
     input_dim: 500
-    latent_dim: 128
-    down_channels: [ 16, 32, 64, 128, 256 ]
-    up_channels: [ 256, 128, 64, 32, 16 ]
+    latent_dim: 64
+    down_channels: [ 8, 16, 32, 64, 128, 256 ]
+    up_channels: [ 256, 128, 64, 32, 16, 8 ]
     strat: "y"
 
 param_grid:
