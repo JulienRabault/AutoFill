@@ -62,7 +62,7 @@ class TrainPipeline:
         training.setdefault('output_dir', 'train_results')
         training.setdefault('plot_train', True)
         training.setdefault('every_n_epochs', 10)
-        training.setdefault('num_samples', 4)
+        training.setdefault('num_samples', 10)
         config['training'] = training
 
         # Model type default
@@ -78,7 +78,7 @@ class TrainPipeline:
     def _initialize_components(self):
         model_type = self.config['model']['type']
         common_cfg = {
-            'num_samples': self.config['training'].get('num_samples', 4),
+            'num_samples': self.config['training'].get('num_samples', 10),
             'every_n_epochs': self.config['training'].get('every_n_epochs', 10),
             'artifact_file': 'val_plot.png'
         }

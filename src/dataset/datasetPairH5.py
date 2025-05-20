@@ -13,10 +13,10 @@ from src.dataset.transformations import *
 class PairHDF5Dataset(Dataset):
     def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
                  sample_frac=1, requested_metadata=[],
-                 transformer_q_saxs=SequentialTransformer(),
-                transformer_y_saxs=SequentialTransformer(),
-                transformer_q_les=SequentialTransformer(),
-                transformer_y_les=SequentialTransformer(),
+                 transformer_q_saxs=Pipeline(),
+                transformer_y_saxs=Pipeline(),
+                transformer_q_les=Pipeline(),
+                transformer_y_les=Pipeline(),
                  **kwargs):
         """
         Optimized PyTorch Dataset for HDF5 files with selective metadata preprocessing
