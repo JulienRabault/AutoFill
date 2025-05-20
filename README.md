@@ -29,17 +29,17 @@ AutoFill/
 
 ## Installation
 
-1. Prérequis
+### 1. Prérequis
    Python 3.8+ : uv peut gérer automatiquement l'installation de Python si nécessaire.
 
-2. Cloner le projet
+### 2. Cloner le projet
 
 ```bash
 git clone https://github.com/JulienRabault/AutoFill.git
 cd AutoFill
 ```
 
-3. Installer uv
+### 3. Installer uv
 
 **Sur Linux**
 
@@ -65,7 +65,7 @@ Puis installez les dépendances (optionnel) :
 uv sync --no-dev
 ```
 
-4. (Optionnel) Créer un environnement virtuel avec `venv`
+###  4. (Optionnel) Créer un environnement virtuel avec `venv`
 
 Si vous ne souhaitez pas utiliser `uv`, vous pouvez créer un environnement virtuel avec `venv` :
 
@@ -79,17 +79,17 @@ pip install -r requirements.txt # (Windows : .\env\Scripts\activate)
 
 ## Pipeline
 
-1. **[Prétraitement CSV](#1-prétraitement-csv-csv_pre_processpy)** : fusion et nettoyage → `metadata_clean.csv`
+1. **[Prétraitement CSV](#1-prétraitement-csv)** : fusion et nettoyage → `metadata_clean.csv`
 2. **[Conversion .txt → HDF5 (VAE)](#2-conversion-txt--hdf5-avec-txttohdf5py)** : séries temporelles + métadonnées →
    `all_data.h5` + `metadata_dict.json`
 3. **[Entraînement du modèle VAE](#3-entrainement-du-modèle-à-partir-du-fichier-hdf5)** : filtre, configuration YAML →
    lancement du training VAE
 4. **[Conversion .txt → HDF5 (PairVAE)](#5-conversion-txt--hdf5-pour-pairvae)** : séries temporelles + métadonnées →
    `all_data.h5` + `metadata_dict.json`
-5. **[Entraînement du modèle PairVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du
+5. **[Entraînement du modèle PAIRVAE](#6-entrainement-du-modèle-pairvae)** : filtre, configuration YAML → lancement du
    training PairVAE
 6. **[Inference (optionnelle)](#6-inference-optionnelle)** : analyse des résultats à partir des poids entraînés
-7. **[Expert: Grid Search](#expert-recherche-par-grille-grid-search)** : optimisation des hyperparamètres
+7. **[Expert: Grid Search](#expert-grid-search)** : optimisation des hyperparamètres
    avec la recherche par grille intégrée.
 
 ### 1. Prétraitement CSV
