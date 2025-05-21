@@ -29,6 +29,7 @@ class TrainPipeline:
         self.log_path = self._safe_log_directory()
         self.config['training']['output_dir'] = str(self.log_path)
         self.model, self.dataset, self.extra_callback_list = self._initialize_components()
+        self.config['convertion_dict'] = self.dataset.get_conversion_dict()
         if self.verbose:
             print("[Pipeline] Preparing data loaders")
         self.training_loader, self.validation_loader = self._create_data_loaders()
@@ -146,7 +147,8 @@ class TrainPipeline:
         if self.verbose:
             print("[Trainer] Configuring callbacks and logger")
         early_stop_callback = EarlyStopping(monitor='val_loss', patience=self.config['training']['patience'],
-                                            min_delta=self.config['training'].get('min_delta', 0.00001), verbose=True, mode='min')
+                                            min_delta=self.config['training'].get('min_delta', 0.0001), verbose=True,
+                                            mode='min')
         checkpoint_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1, mode='min',
                                               every_n_epochs=self.config['training'].get('save_every', 1),
                                               dirpath=self.log_path,

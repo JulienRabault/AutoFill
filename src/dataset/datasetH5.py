@@ -1,6 +1,7 @@
 import json
 import os
 import warnings
+from pathlib import Path
 
 import h5py
 import torch
@@ -11,14 +12,16 @@ from src.dataset.transformations import *
 
 
 class HDF5Dataset(Dataset):
-    def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
+    def __init__(self, hdf5_file, conversion_dict: Union[dict, str, Path], metadata_filters=None,
                  sample_frac=1, requested_metadata=[],
                  transformer_q=Pipeline(), transformer_y=Pipeline()):
         self.hdf5_file = hdf5_file
         self.hdf = h5py.File(hdf5_file, 'r', swmr=True)
         self.data_q = self.hdf['data_q']
         self.data_y = self.hdf['data_y']
-
+        assert len(self.data_q) == len(self.data_y), "data_q and data_y must have the same length"
+        assert len(self.data_y) > 0 or len(self.data_q) >0, "H5file is empty, please check your HDF5 file\n" \
+        "Check your metadata filters and make sure they are not too restrictive."
         required_keys = ['data_q', 'data_y']
         missing = [k for k in required_keys if k not in self.hdf]
         if missing:
@@ -27,15 +30,17 @@ class HDF5Dataset(Dataset):
                 "Your HDF5 file is not compatible with VAE. "
                 "Refer to the README (section 2) and generate it using scripts/02_txtTOhdf5.py."
             )
-        self.transformer_q = transformer_q
-        self.transformer_y = transformer_y
+
+        self.transformer_q = _ensure_pipeline(transformer_q)
+        self.transformer_y = _ensure_pipeline(transformer_y)
+
         self.csv_index = self.hdf['csv_index']
         self.len = self.hdf['len']
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
                              ['data_q', 'data_y', 'len', 'csv_index']]
         self.metadata_datasets = {col: self.hdf[col] for col in all_metadata_cols}
         self.requested_metadata = self._validate_requested_metadata(requested_metadata, all_metadata_cols)
-        self.conversion_dict = self._load_conversion_dict(conversion_dict_path)
+        self.conversion_dict = self._load_conversion_dict(conversion_dict)
         self.metadata_filters = metadata_filters or {}
         self.filtered_indices = self._apply_metadata_filters()
         self._validate_frac(sample_frac)
@@ -68,12 +73,15 @@ class HDF5Dataset(Dataset):
         if not (0 < sample_frac <= 1):
             raise ValueError("Data fraction must be between 0 and 1")
 
-    def _load_conversion_dict(self, path):
+    def _load_conversion_dict(self, conversion_dict: Union[dict, str, Path]):
         """Load JSON conversion dictionary for categorical metadata"""
-        if path and os.path.exists(path):
-            with open(path, 'r') as f:
-                return json.load(f)
-        return {}
+        if isinstance(conversion_dict, (str, Path)):
+            with open(conversion_dict, 'r') as f:
+                conversion_dict = json.load(f)
+        elif not isinstance(conversion_dict, dict):
+            raise ValueError("Conversion dictionary must be a dictionary or a path to a JSON file")
+
+        return conversion_dict
 
     def _apply_metadata_filters(self):
         """Vectorized metadata filtering using numpy operations"""
@@ -117,6 +125,10 @@ class HDF5Dataset(Dataset):
             metadata[col] = data
         return metadata
 
+    def get_conversion_dict(self):
+        """Return the conversion dictionary for categorical metadata"""
+        return self.conversion_dict
+
     def __getitem__(self, idx):
         """Optimized data loading with timing and progress tracking"""
         # Get original dataset index
@@ -156,7 +168,15 @@ class HDF5Dataset(Dataset):
     def invert_transforms_func(self):
         """Return the inverse transformation functions for data_y and data_q"""
         def func(y_arr, q_arr):
-            y_arr = self.transformer_y.inverse_transform(y_arr)
-            q_arr = self.transformer_q.inverse_transform(q_arr)
+            y_arr = self.transformer_y.invert(y_arr)
+            q_arr = self.transformer_q.invert(q_arr)
             return y_arr, q_arr
         return func
+
+def _ensure_pipeline(transformer) -> Pipeline:
+    if isinstance(transformer, Pipeline):
+        return transformer
+    try:
+        return Pipeline(transformer)
+    except Exception as e:
+        raise ValueError(f"Invalid {transformer}: {e}")

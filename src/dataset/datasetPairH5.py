@@ -1,6 +1,7 @@
 import json
 import os
 import warnings
+from pathlib import Path
 
 import h5py
 import torch
@@ -11,7 +12,7 @@ from src.dataset.transformations import *
 
 
 class PairHDF5Dataset(Dataset):
-    def __init__(self, hdf5_file, metadata_filters=None, conversion_dict_path=None,
+    def __init__(self, hdf5_file, conversion_dict: Union[dict, str, Path], metadata_filters=None,
                  sample_frac=1, requested_metadata=[],
                  transformer_q_saxs=Pipeline(),
                 transformer_y_saxs=Pipeline(),
@@ -39,17 +40,24 @@ class PairHDF5Dataset(Dataset):
         self.data_y_les = self.hdf['data_y_les']
         self.csv_index = self.hdf['csv_index']
 
-        self.transformer_q_saxs = transformer_q_saxs
-        self.transformer_y_saxs = transformer_y_saxs
-        self.transformer_q_les = transformer_q_les
-        self.transformer_y_les = transformer_y_les
+        assert len(self.data_q_saxs) == len(self.data_y_saxs), "data_y_saxs and data_q_saxs must have the same length"
+        assert len(self.data_q_les) == len(self.data_y_les), "data_y_saxs and data_q_saxs must have the same length"
+        assert len(self.data_q_saxs) <= 0 or len(self.data_y_saxs) <= 0, "H5file saxs part is empty, please check your HDF5 file\n" \
+                                                               "Check your metadata filters and make sure they are not too restrictive."
+        assert len(self.data_q_les) <= 0 or len(self.data_y_les) <= 0, "H5file les part is empty, please check your HDF5 file\n" \
+                                                               "Check your metadata filters and make sure they are not too restrictive."
+
+        self.transformer_q_saxs = _ensure_pipeline(transformer_q_saxs)
+        self.transformer_y_saxs = _ensure_pipeline(transformer_y_saxs)
+        self.transformer_q_les = _ensure_pipeline(transformer_q_les)
+        self.transformer_y_les = _ensure_pipeline(transformer_y_les)
 
         all_metadata_cols = [col for col in self.hdf.keys() if col not in
                              ['data_q_saxs', 'data_y_saxs', 'data_q_les', 'data_y_les', 'len', 'csv_index']]
         self.metadata_datasets = {col: self.hdf[col] for col in all_metadata_cols}
 
         self.requested_metadata = self._validate_requested_metadata(requested_metadata, all_metadata_cols)
-        self.conversion_dict = self._load_conversion_dict(conversion_dict_path)
+        self.conversion_dict = self._load_conversion_dict(conversion_dict)
 
         # Filters
         self.metadata_filters = metadata_filters or {}
@@ -97,12 +105,18 @@ class PairHDF5Dataset(Dataset):
         if not (0 < sample_frac <= 1):
             raise ValueError("Data fraction must be between 0 and 1")
 
-    def _load_conversion_dict(self, path):
+    def _load_conversion_dict(self, conversion_dict: Union[dict, str, Path]):
         """Load JSON conversion dictionary for categorical metadata"""
-        if path and os.path.exists(path):
-            with open(path, 'r') as f:
-                return json.load(f)
-        return {}
+        if isinstance(conversion_dict, (str, Path)):
+            with open(conversion_dict, 'r') as f:
+                conversion_dict = json.load(f)
+        elif not isinstance(conversion_dict, dict):
+            raise ValueError("Conversion dictionary must be a dictionary or a path to a JSON file")
+        return conversion_dict
+
+    def get_conversion_dict(self):
+        """Return the conversion dictionary for categorical metadata"""
+        return self.conversion_dict
 
     def _apply_metadata_filters(self):
         """Vectorized metadata filtering using numpy operations"""
@@ -190,3 +204,12 @@ class PairHDF5Dataset(Dataset):
             "q_les": self.transformer_q_les.to_dict(),
             "y_les": self.transformer_y_les.to_dict()
         }
+
+
+def _ensure_pipeline(transformer) -> Pipeline:
+    if isinstance(transformer, Pipeline):
+        return transformer
+    try:
+        return Pipeline(transformer)
+    except Exception as e:
+        raise ValueError(f"Invalid {transformer}: {e}")

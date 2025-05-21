@@ -287,12 +287,14 @@ sur `technique=saxs` et `material=ag`.
 
 Le script `05_infer.py` permet de lancer l'inférence avec les modèles VAE ou PairVAE directement en ligne de commande. 
 
+> **Note** : Lors de l'entrainnement, le modèle est sauvegarde le convertion_dict avec le quel il a été entrainé.
+> Lors de l'inference, si vous utilisez un dataset H5, il faut que le convertion_dict soit le même que celui utilisé. Vous pouvez les trouver dans la configuration sauvegarder lors de l'entrainnement.
+
 **Utilisation générale** :
 ```bash
 python scripts/05_infer.py \
   --checkpoint <CHEMIN_CHECKPOINT> \
   --data_path <FICHIER_DONNÉES> \
-  --conversion_dict_path <DICTIONNAIRE_CONVERSION> \
   [--mode <MODE_CONVERSION>] \
   [--batch_size <TAILLE_BATCH>]
 ```
@@ -303,7 +305,6 @@ python scripts/05_infer.py \
 |----------|-------------|-------------|
 | `-c/--checkpoint` | ✓ | Chemin vers le fichier de checkpoint (.ckpt) |
 | `-d/--data_path` | ✓ | Chemin vers les données d'entrée (.h5 ou .csv) |
-| `-cdp/--conversion_dict_path` | HDF5 only | Chemin vers le JSON de conversion des métadonnées |
 | `--mode` | PairVAE only | `les_to_saxs` ou `saxs_to_les` pour le PairVAE |
 | `-bs/--batch_size` | ❌ | Taille de batch (défaut: 32) |
 
@@ -312,7 +313,6 @@ python scripts/05_infer.py \
 python scripts/05_infer.py \
   --checkpoint logs/vae_model.ckpt \
   --data_path data/new_data.h5 \
-  --conversion_dict_path data/metadata_dict.json \
   --batch_size 64
 ```
 
@@ -321,12 +321,10 @@ python scripts/05_infer.py \
 python scripts/05_infer.py \
   --checkpoint logs/pairvae_model.ckpt \
   --data_path data/pair_data.h5 \
-  --conversion_dict_path data/pair_metadata_dict.json \
   --mode les_to_saxs \
   --batch_size 32
 ```
 
-> **Note** : Pour les fichiers HDF5, le paramètre `--conversion_dict_path` est obligatoire. Le script générera une erreur explicite si ce paramètre est manquant.
 #### Sorties
 
 Les prédictions sont sauvegardées dans le dossier `inference_outputs` sous forme de fichiers `.npy` :

@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from src.dataset.transformations import SequentialTransformer
+from src.dataset.transformations import Pipeline
 
 
 class TXTDataset(Dataset):
@@ -18,8 +18,8 @@ class TXTDataset(Dataset):
         self.numerical_cols = ['concentration', 'opticalPathLength', 'd', 'h']
         self.data_dir = data_dir
         self.cache_limit = cache_limit
-        self.transformer_q = SequentialTransformer(transform.get("q", None))
-        self.transformer_y = SequentialTransformer(transform.get("y", None))
+        self.transformer_q = Pipeline(transform.get("q", None))
+        self.transformer_y = Pipeline(transform.get("y", None))
 
         self.cat_vocab = self._build_cat_vocab()
         self.metadata_tensor = self._preprocess_metadata()

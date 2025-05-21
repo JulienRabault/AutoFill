@@ -26,7 +26,7 @@ def move_to_device(batch, device):
 
 
 class BaseInferencer:
-    def __init__(self, checkpoint_path, data_path, hparams, conversion_dict_path=None, batch_size=32):
+    def __init__(self, checkpoint_path, data_path, hparams, batch_size=32):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.output_dir = "inference_outputs"
@@ -35,10 +35,10 @@ class BaseInferencer:
         self.config = hparams
         self.model.to(self.device).eval()
         input_dim = self.config["model"]["args"]["input_dim"]
-        self.compute_dataset(conversion_dict_path, data_path, input_dim)
+        self.compute_dataset(data_path, input_dim)
 
     @abc.abstractmethod
-    def compute_dataset(self, conversion_dict_path, data_path, input_dim):
+    def compute_dataset(self, data_path, input_dim):
         raise NotImplementedError(
             "compute_dataset method should be implemented in subclasses."
         )
@@ -91,13 +91,14 @@ class VAEInferencer(BaseInferencer):
                     self.save_pred(batch, i, q_arr, y_arr)
 
 
-    def compute_dataset(self, conversion_dict_path, data_path, input_dim):
+    def compute_dataset(self, data_path, input_dim):
         if data_path.endswith(".h5"):
             self.dataset = HDF5Dataset(
                 data_path,
-                transform=self.config["dataset"]["transform"],
+                transformer_q=self.config["transforms_data"]["q"],
+                transformer_y=self.config["transforms_data"]["y"],
                 metadata_filters=self.config["dataset"]["metadata_filters"],
-                conversion_dict_path=conversion_dict_path
+                conversion_dict=self.config["convertion_dict"],
             )
             self.format = 'h5'
             self.invert_transform = self.dataset.invert_transforms_func()
@@ -164,7 +165,7 @@ class PairVAEInferencer(BaseInferencer):
                 self.dataset = HDF5Dataset(
                     data_path,
                     metadata_filters=self.config["dataset"]["metadata_filters"],
-                    conversion_dict_path=conversion_dict_path,
+                    conversion_dict=self.config['config']["conversion_dict"],
                     transformer_q=transformer_q_les,
                     transformer_y=transformer_y_les,
                 )
@@ -177,7 +178,7 @@ class PairVAEInferencer(BaseInferencer):
                 self.dataset = HDF5Dataset(
                     data_path,
                     metadata_filters=self.config["dataset"]["metadata_filters"],
-                    conversion_dict_path=conversion_dict_path,
+                    conversion_dict=self.config['config']["conversion_dict"],
                     transformer_q=transformer_q_saxs,
                     transformer_y=transformer_y_saxs,
                 )

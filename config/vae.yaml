@@ -1,13 +1,12 @@
 experiment_name: "exp_final"
 run_name: test_les
-mlflow_uri: https://mlflowts.irit.fr/
 dataset:
-  hdf5_file: "/projects/pnria/caroline/test.h5"
+  hdf5_file: "/mnt/data/WORK/AutoFill/data_saxs.h5"
   metadata_filters:
     material: [ "ag" ]
-    technique: [ "les" ]
+    technique: [ "saxs" ]
   requested_metadata: [ "shape", "material" ]
-  conversion_dict_path: "/projects/pnria/caroline/test.json"
+  conversion_dict: "/mnt/data/WORK/AutoFill/conversion_dict_saxs.json"
   sample_frac: 1.0
 transforms_data:
   y:
