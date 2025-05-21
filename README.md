@@ -295,18 +295,20 @@ Le script `05_infer.py` permet de lancer l'inférence avec les modèles VAE ou P
 python scripts/05_infer.py \
   --checkpoint <CHEMIN_CHECKPOINT> \
   --data_path <FICHIER_DONNÉES> \
+  [--data_dir <DOSSIER_DONNÉES>] \
   [--mode <MODE_CONVERSION>] \
   [--batch_size <TAILLE_BATCH>]
 ```
 
 **Arguments principaux** :
 
-| Argument | Obligatoire | Description |
-|----------|-------------|-------------|
-| `-c/--checkpoint` | ✓ | Chemin vers le fichier de checkpoint (.ckpt) |
-| `-d/--data_path` | ✓ | Chemin vers les données d'entrée (.h5 ou .csv) |
-| `--mode` | PairVAE only | `les_to_saxs` ou `saxs_to_les` pour le PairVAE |
-| `-bs/--batch_size` | ❌ | Taille de batch (défaut: 32) |
+| Argument           | Obligatoire | Description                                    |
+|--------------------|-------------|------------------------------------------------|
+| `-c/--checkpoint`  | ✓ | Chemin vers le fichier de checkpoint (.ckpt)   |
+| `-d/--data_path`   | ✓ | Chemin vers les données d'entrée (.h5 ou .csv) |
+| `--mode`           | PairVAE only | `les_to_saxs` ou `saxs_to_les` pour le PairVAE |
+| `-bs/--batch_size` | ❌ | Taille de batch (défaut: 32)                   |
+| `-dd/--data_dir` | ❌ | Chemin vers le dossiers des données txt        |
 
 **Exemple pour VAE** :
 ```bash
@@ -345,9 +347,9 @@ prediction_12345.npy  # Nom généré à partir de l'index CSV ou du nom du fich
 | Modèle    | Formats d'entrée | Modes (PairVAE)       |
 |-----------|------------------|-----------------------|
 | VAE       | `.h5`, `.csv`    | -                     |
-| PairVAE   | `.h5` uniquement | `les_to_saxs`, `saxs_to_les` |
+| PairVAE   | `.h5`, `.csv`    | `les_to_saxs`, `saxs_to_les` |
 
-> **Note** : Pour le VAE avec des données CSV, assurez-vous que le fichier contient une colonne `path` pointant vers les fichiers `.txt` à prédire.
+> **Note** : Pour le VAE avec des données CSV, assurez-vous que le fichier contient une colonne `path` pointant vers les fichiers `.txt` à prédire et de preciser `--data_dir`.
 
 ---
 

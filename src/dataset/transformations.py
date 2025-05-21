@@ -5,6 +5,7 @@ import numpy as np
 # region Base Transformer
 class Transformer(ABC):
     name: str
+    _fitted: bool = False
 
     @abstractmethod
     def fit(self, data: np.ndarray) -> "Transformer":
@@ -21,6 +22,9 @@ class Transformer(ABC):
     def get_config(self) -> Dict[str, Any]:
         init_params = self.__init__.__code__.co_varnames[1:self.__init__.__code__.co_argcount]
         return {self.name: {k: getattr(self, k) for k in init_params if hasattr(self, k)}}
+
+    def is_fitted(self) -> bool:
+        return self._fitted
 # endregion
 
 # region Basic Transformers
@@ -28,17 +32,18 @@ class MinMaxScaler(Transformer):
     name = "MinMaxScaler"
 
     def __init__(self, min_val: Optional[float] = None, max_val: Optional[float] = None):
-        self._fitted = False
+
         self.min_val = min_val
         self.max_val = max_val
+        self._fitted = not (self.min_val is None or self.max_val is None)
 
     def fit(self, data: np.ndarray) -> "MinMaxScaler":
-        if self.min_val is None or self.max_val is None:
+        if not self._fitted:
             self.min_val = float(np.min(data))
             self.max_val = float(np.max(data))
+            self._fitted = True
         if self.min_val >= self.max_val:
             raise ValueError("min_val must be less than max_val.")
-        self._fitted = True
         return self
 
     def transform(self, data: np.ndarray) -> np.ndarray:
@@ -59,6 +64,7 @@ class Padding(Transformer):
     def __init__(self, pad_size: int, value: float = 0):
         self.pad_size = pad_size
         self.value = value
+        self._fitted = True
 
     def fit(self, data: np.ndarray) -> "Padding":
         return self
@@ -78,6 +84,7 @@ class EnsurePositive(Transformer):
     name = "StrictlyPositiveTransformer"
 
     def __init__(self, epsilon: float = 1e-9):
+        self._fitted = True
         self.epsilon = epsilon
 
     def fit(self, data: np.ndarray) -> "EnsurePositive":
@@ -93,6 +100,7 @@ class Log(Transformer):
     name = "LogTransformer"
 
     def __init__(self, epsilon: float = 1e-9):
+        self._fitted = True
         self.epsilon = epsilon
 
     def fit(self, data: np.ndarray) -> "Log":
@@ -106,7 +114,10 @@ class Log(Transformer):
 # endregion
 
 # region Preprocessing Base
-class PreprocessingBase(Transformer):
+class PreprocessingBase():
+
+    pipeline= None
+
     def __init__(self, pad_size: int, value: float = 0):
         self.pad_size = pad_size
         self.value = value
@@ -120,6 +131,13 @@ class PreprocessingBase(Transformer):
     def fit(self, data: np.ndarray):
         self.pipeline.fit(data)
         return self
+
+    def get_config(self) -> Dict[str, Any]:
+        print(f"Pipeline config: {self.pipeline.to_dict()}")
+        return self.pipeline.to_dict()
+
+    def is_fitted(self):
+        return self.pipeline.is_fitted()
 
 # endregion
 
@@ -207,4 +225,7 @@ class Pipeline:
         for step in self.steps:
             merged.update(step.get_config())
         return merged
+
+    def is_fitted(self):
+        return all([step._fitted for step in self.steps])
 # endregion

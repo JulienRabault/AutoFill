@@ -26,7 +26,7 @@ def move_to_device(batch, device):
 
 
 class BaseInferencer:
-    def __init__(self, checkpoint_path, data_path, hparams, batch_size=32):
+    def __init__(self, checkpoint_path, data_path, hparams, batch_size=32, data_dir="."):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.output_dir = "inference_outputs"
@@ -35,10 +35,12 @@ class BaseInferencer:
         self.config = hparams
         self.model.to(self.device).eval()
         input_dim = self.config["model"]["args"]["input_dim"]
-        self.compute_dataset(data_path, input_dim)
+        self.data_path = data_path
+        self.data_dir = data_dir
+        self.compute_dataset(input_dim)
 
     @abc.abstractmethod
-    def compute_dataset(self, data_path, input_dim):
+    def compute_dataset(self, input_dim):
         raise NotImplementedError(
             "compute_dataset method should be implemented in subclasses."
         )
@@ -84,39 +86,38 @@ class VAEInferencer(BaseInferencer):
                 outputs = self.model(batch)
                 y_pred = outputs["recon"].squeeze(dim=0)
                 q_pred = batch['data_q']
-                y_pred, q_pred = self.invert_transform(y_pred, q_pred)
+                y_pred, q_pred = self.invert(y_pred, q_pred)
                 for i in range(len(y_pred)):
                     y_arr = y_pred[i].cpu().numpy().flatten()
                     q_arr = q_pred[i].cpu().numpy().flatten()
                     self.save_pred(batch, i, q_arr, y_arr)
 
 
-    def compute_dataset(self, data_path, input_dim):
-        if data_path.endswith(".h5"):
+    def compute_dataset(self, input_dim):
+        if self.data_path.endswith(".h5"):
             self.dataset = HDF5Dataset(
-                data_path,
+                self.data_path,
                 transformer_q=self.config["transforms_data"]["q"],
                 transformer_y=self.config["transforms_data"]["y"],
                 metadata_filters=self.config["dataset"]["metadata_filters"],
                 conversion_dict=self.config["convertion_dict"],
             )
             self.format = 'h5'
-            self.invert_transform = self.dataset.invert_transforms_func()
-        elif data_path.endswith(".csv"):
+            self.invert = self.dataset.invert_transforms_func()
+        elif self.data_path.endswith(".csv"):
             import pandas as pd
-            df = pd.read_csv(data_path)
+            df = pd.read_csv(self.data_path)
             df = df[df["technique"].str.lower().isin([t.lower() for t in self.config["dataset"]["metadata_filters"]["technique"]])]
             df = df[df["material"].str.lower().isin([m.lower() for m in self.config["dataset"]["metadata_filters"]["material"]])]
             df = df.reset_index(drop=True)
             self.dataset = TXTDataset(
                 dataframe=df,
-                transform={
-                    'y': {'MinMaxNormalizer': {}, 'PaddingTransformer': {'pad_size': input_dim, 'value': 0}},
-                    'q': {'PaddingTransformer': {'pad_size': input_dim, 'value': 0}}
-                }
+                data_dir=self.data_dir,
+                transformer_q=self.config["transforms_data"]["q"],
+                transformer_y=self.config["transforms_data"]["y"],
             )
             self.format = 'csv'
-            self.invert_transform = self.dataset.invert_transforms_func()
+            self.invert = self.dataset.invert_transforms_func()
         else:
             raise ValueError("Unsupported file format. Use .h5 or .csv")
 
@@ -143,19 +144,15 @@ class PairVAEInferencer(BaseInferencer):
                 raise ValueError(f"Unknown inference mode: {self.mode}")
 
             for i in range(len(y_pred)):
-                y_pred, q_pred = self.invert_transform(y_pred, q_pred)
+                y_pred, q_pred = self.invert(y_pred, q_pred)
                 y_arr = y_pred[i].cpu().numpy().flatten()
                 q_arr = q_pred[i].cpu().numpy().flatten()
                 stacked = np.stack([y_arr, q_arr], axis=1)
-                if self.format == 'h5':
-                    name = str(batch['csv_index'][i])
-                else:
-                    path = batch['path'][i]
-                    name = os.path.splitext(os.path.basename(path))[0]
+                name = str(batch['csv_index'][i])
                 np.save(os.path.join(self.output_dir, f"prediction_{name}.npy"), stacked)
 
-    def compute_dataset(self, conversion_dict_path, data_path, input_dim):
-        if data_path.endswith(".h5"):
+    def compute_dataset(self, input_dim):
+        if self.data_path.endswith(".h5"):
             transform_config = self.config.get('transforms_data', {})
             transformer_q_les = Pipeline(transform_config["q_les"])
             transformer_y_les = Pipeline(transform_config["y_les"])
@@ -163,33 +160,67 @@ class PairVAEInferencer(BaseInferencer):
             transformer_y_saxs = Pipeline(transform_config["y_saxs"])
             if self.mode == 'les_to_saxs':
                 self.dataset = HDF5Dataset(
-                    data_path,
+                    self.data_path,
                     metadata_filters=self.config["dataset"]["metadata_filters"],
                     conversion_dict=self.config['config']["conversion_dict"],
                     transformer_q=transformer_q_les,
                     transformer_y=transformer_y_les,
                 )
-                def invert_transform(y, q):
-                    y = transformer_y_saxs.invert_transform(y)
-                    q = transformer_q_saxs.invert_transform(q)
+                def invert(y, q):
+                    y = transformer_y_saxs.invert(y)
+                    q = transformer_q_saxs.invert(q)
                     return y, q
-                self.invert_transform = invert_transform
+                self.invert = invert
             elif self.mode == 'saxs_to_les':
                 self.dataset = HDF5Dataset(
-                    data_path,
+                    self.data_path,
                     metadata_filters=self.config["dataset"]["metadata_filters"],
                     conversion_dict=self.config['config']["conversion_dict"],
                     transformer_q=transformer_q_saxs,
                     transformer_y=transformer_y_saxs,
                 )
-                def invert_transform(y, q):
-                    y = transformer_y_les.invert_transform(y)
-                    q = transformer_q_les.invert_transform(q)
+                def invert(y, q):
+                    y = transformer_y_les.invert(y)
+                    q = transformer_q_les.invert(q)
                     return y, q
-                self.invert_transform = invert_transform
+                self.invert = invert
             else:
                 raise ValueError(f"Unknown mode: {self.mode}")
             self.format = 'h5'
-            self.invert_transform = self.dataset.invert_transforms_func()
+            self.invert = self.dataset.inverts_func()
+        if self.data_path.endswith(".csv"):
+            transform_config = self.config.get('transforms_data', {})
+            transformer_q_les = Pipeline(transform_config["q_les"])
+            transformer_y_les = Pipeline(transform_config["y_les"])
+            transformer_q_saxs = Pipeline(transform_config["q_saxs"])
+            transformer_y_saxs = Pipeline(transform_config["y_saxs"])
+            if self.mode == 'les_to_saxs':
+                self.dataset = TXTDataset(
+                    self.data_path,
+                    data_dir=self.data_dir,
+                    transformer_q=transformer_q_les,
+                    transformer_y=transformer_y_les,
+                )
+                def invert(y, q):
+                    y = transformer_y_saxs.invert(y)
+                    q = transformer_q_saxs.invert(q)
+                    return y, q
+                self.invert = invert
+            elif self.mode == 'saxs_to_les':
+                self.dataset = TXTDataset(
+                    self.data_path,
+                    data_dir=self.data_dir,
+                    transformer_q=transformer_q_saxs,
+                    transformer_y=transformer_y_saxs,
+                )
+                def invert(y, q):
+                    y = transformer_y_les.invert(y)
+                    q = transformer_q_les.invert(q)
+                    return y, q
+                self.invert = invert
+            else:
+                raise ValueError(f"Unknown mode: {self.mode}")
+            self.format = 'h5'
+            self.invert = self.dataset.inverts_func()
         else:
             raise ValueError("Unsupported file format. Use .h5")

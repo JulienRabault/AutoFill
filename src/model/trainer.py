@@ -123,7 +123,7 @@ class TrainPipeline:
                                                       **train_cfg))
 
         # Save transformer config
-        self.config['dataset']['transforms'] = dataset.transforms_to_dict()
+        self.config['transforms_data'] = dataset.transforms_to_dict()
 
         return model, dataset, callbacks
 
