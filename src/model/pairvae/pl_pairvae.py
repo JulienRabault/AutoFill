@@ -129,3 +129,23 @@ class PlPairVAE(pl.LightningModule):
         recon_saxs2les = self.model.vae_les.decode(output_saxs["z"])
 
         return recon_saxs2les, data_q_saxs
+
+    def saxs_to_saxs(self, batch):
+
+        data_y_saxs = batch["data_y_saxs"]
+        data_q_saxs = batch["data_q_saxs"]
+        
+        output_saxs = self.model.vae_saxs(y=data_y_saxs, q=data_q_saxs, metadata={})
+        recon_saxs2saxs = self.model.vae_saxs.decode(output_saxs["z"])
+
+        return recon_saxs2saxs, data_q_saxs
+
+    def les_to_les(self, batch):
+
+        data_y_les = batch["data_y_les"]
+        data_q_les = batch["data_q_les"]
+        
+        output_les = self.model.vae_les(y=data_y_les, q=data_q_les, metadata={})
+        recon_les2les = self.model.vae_les.decode(output_les["z"])
+
+        return recon_les2les, data_q_les
