@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 
+
 def merge_hdf5(file1, file2, output_file):
     """Fusionne deux fichiers HDF5 en un seul."""
     with h5py.File(file1, "r") as hdf1, h5py.File(file2, "r") as hdf2, h5py.File(output_file, "w") as hdf_out:
@@ -14,5 +15,6 @@ def merge_hdf5(file1, file2, output_file):
 
             # Créer le dataset avec la bonne shape
             hdf_out.create_dataset(key, data=merged_data, maxshape=(None,) + merged_data.shape[1:], dtype=data1.dtype)
+
 
 merge_hdf5("data.h5", "data_saxs.h5", "all_data.hdf5")

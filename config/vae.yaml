@@ -1,0 +1,50 @@
+experiment_name: "exp_final"
+run_name: test_les
+dataset:
+  hdf5_file: "/mnt/data/WORK/AutoFill/data_saxs.h5"
+  metadata_filters:
+    material: [ "ag" ]
+    technique: [ "saxs" ]
+  requested_metadata: [ "shape", "material" ]
+  conversion_dict: "/mnt/data/WORK/AutoFill/conversion_dict_saxs.json"
+  sample_frac: 1.0
+transforms_data:
+  y:
+    PreprocessingLES:
+      pad_size: 500
+  q:
+    PreprocessingQ:
+      pad_size: 500
+
+training:
+  num_gpus: 1
+  num_nodes: 1
+  num_epochs: 400
+  patience: 50
+  use_loglog: True
+
+  batch_size: 64
+  num_workers: 8
+
+  beta: 0.00001
+
+  max_lr: 0.0001
+  T_max: 150
+  eta_min: 0.0000001
+
+model:
+  vae_class: ResVAEBN
+  args:
+    in_channels: 1
+    output_channels: 1
+    dilation: 1
+    input_dim: 500
+    latent_dim: 64
+    down_channels: [ 8, 16, 32, 64, 128, 256 ]
+    up_channels: [ 256, 128, 64, 32, 16, 8 ]
+    strat: "y"
+
+param_grid:
+  training.beta: [ 0.001, 0.0001 ]
+  model.args.latent_dim: [ 64, 128, 256 ]
+  training.batch_size: [ 16, 32, 64 ]

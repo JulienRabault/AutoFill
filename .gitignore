@@ -1,0 +1,10 @@
+*.err
+*.h5
+*.json
+runs/*
+__pycache__/
+*.pyc
+*.pkl
+*.env
+.idea/
+**.idea/

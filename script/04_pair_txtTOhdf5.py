@@ -1,17 +1,18 @@
-
-import os
 import json
-import pandas as pd
-import numpy as np
-import h5py
-from tqdm import tqdm
-import warnings
 import math
+import os
+import warnings
+
+import h5py
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
 
 
-class TextToHDF5Converter:
+class PairTextToHDF5Converter:
     def __init__(self, dataframe, data_dir, output_dir, pad_size=90, hdf_cache=100000,
-                 final_output_file='final_output.h5', exclude=['path', 'researcher', 'date'], json_output='conversion_dict.json'):
+                 final_output_file='final_output.h5', exclude=['saxs_path', 'les_path', 'researcher', 'date'],
+                 json_output='conversion_dict.json'):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.output_dir = output_dir
@@ -19,7 +20,6 @@ class TextToHDF5Converter:
         self.hdf_cache = hdf_cache
         self.metadata_cols = [col for col in dataframe.columns if col not in exclude]
         self.conversion_dict = {col: {} for col in self.metadata_cols if dataframe[col].dtype == object}
-        print(self.conversion_dict)
         self.hdf_data = self._initialize_hdf_data()
         self.hdf_files = None
         self.final_output_file = final_output_file
@@ -28,8 +28,10 @@ class TextToHDF5Converter:
 
     def _initialize_hdf_data(self):
         return [
-            np.zeros((self.hdf_cache, self.pad_size)),  # data_q
-            np.zeros((self.hdf_cache, self.pad_size)),  # data_y
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_q saxs
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_y saxs
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_q les
+            np.zeros((self.hdf_cache, self.pad_size)),  # data_y les
             np.zeros((self.hdf_cache,)),  # original len
             np.zeros((self.hdf_cache,)),  # csv index
             {col: np.zeros((self.hdf_cache,)) for col in self.metadata_cols}  # Métadonnées
@@ -37,9 +39,12 @@ class TextToHDF5Converter:
 
     def _create_hdf(self, output_file):
         hdf = h5py.File(output_file, "w")
-        hdf.create_dataset("data_q", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
-        hdf.create_dataset("data_y", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_q_saxs", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_y_saxs", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_q_les", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
+        hdf.create_dataset("data_y_les", (1, self.pad_size), maxshape=(None, self.pad_size), dtype=np.float64)
         hdf.create_dataset("len", (1,), maxshape=(None,))
+        hdf.create_dataset("valid", (1,), maxshape=(None,))
         hdf.create_dataset("csv_index", (1,), maxshape=(None,))
 
         # Création des datasets pour chaque métadonnée
@@ -50,18 +55,26 @@ class TextToHDF5Converter:
 
     def _flush_into_hdf5(self, current_index, current_size):
         """Sauvegarde les données en batch dans le fichier HDF5"""
-        self.hdf_files["data_q"].resize((current_index + current_size, self.pad_size))
-        self.hdf_files["data_q"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size, :]
-        self.hdf_files["data_y"].resize((current_index + current_size, self.pad_size))
-        self.hdf_files["data_y"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size, :]
+        self.hdf_files["data_q_saxs"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_q_saxs"][current_index:current_index + current_size, :] = self.hdf_data[0][:current_size,
+                                                                                       :]
+        self.hdf_files["data_y_saxs"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_y_saxs"][current_index:current_index + current_size, :] = self.hdf_data[1][:current_size,
+                                                                                       :]
+
+        self.hdf_files["data_q_les"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_q_les"][current_index:current_index + current_size, :] = self.hdf_data[2][:current_size, :]
+        self.hdf_files["data_y_les"].resize((current_index + current_size, self.pad_size))
+        self.hdf_files["data_y_les"][current_index:current_index + current_size, :] = self.hdf_data[3][:current_size, :]
+
         self.hdf_files["len"].resize((current_index + current_size,))
-        self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[2][:current_size]
+        self.hdf_files["len"][current_index:current_index + current_size] = self.hdf_data[4][:current_size]
         self.hdf_files["csv_index"].resize((current_index + current_size,))
-        self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[3][:current_size]
+        self.hdf_files["csv_index"][current_index:current_index + current_size] = self.hdf_data[5][:current_size]
 
         for col in self.metadata_cols:
             self.hdf_files[col].resize((current_index + current_size,))
-            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[4][col][:current_size]
+            self.hdf_files[col][current_index:current_index + current_size] = self.hdf_data[6][col][:current_size]
 
         self.hdf_files.flush()
 
@@ -77,7 +90,7 @@ class TextToHDF5Converter:
         data_y = []
         expected_num_columns = 2
 
-        with open(full_path, 'r', encoding="utf-8-sig" ) as f:
+        with open(full_path, 'r', encoding="utf-8-sig") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith(('#', 'Q', 'q', 'Q;', 'q;')):
@@ -91,7 +104,8 @@ class TextToHDF5Converter:
                     tokens = line.split()
 
                 try:
-                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if token != '']
+                    values = [float(token) if token.lower() != 'nan' else float('nan') for token in tokens if
+                              token != '']
                 except ValueError:
                     continue
 
@@ -146,23 +160,30 @@ class TextToHDF5Converter:
         with tqdm(total=len(self.dataframe), desc="Processing files") as pbar:
             for idx, row in self.dataframe.iterrows():
                 pbar.update(1)
-                file_path = os.path.join(self.data_dir, row['path'])
+                file_path_saxs = os.path.join(self.data_dir, row['saxs_path'])
+                file_path_les = os.path.join(self.data_dir, row['les_path'])
+
                 try:
-                    data_q, data_y = self._load_data_from_file(file_path)
-                    original_len = len(data_q)
-                    data_q, data_y = self._pad_data(data_q, data_y)
+
+                    data_q_saxs, data_y_saxs = self._load_data_from_file(file_path_saxs)
+                    data_q_les, data_y_les = self._load_data_from_file(file_path_les)
+                    original_len = len(data_q_saxs)
+                    data_q_saxs, data_y_saxs = self._pad_data(data_q_saxs, data_y_saxs)
+                    data_q_les, data_y_les = self._pad_data(data_q_les, data_y_les)
+
                 except Exception as e:
-                    data_q, data_y = np.zeros((self.pad_size,)), np.zeros((self.pad_size,))
-                    original_len = 0
-                    warnings.warn(f"Erreur fichier {row['path']}: {e}")
+                    warnings.warn(f"Erreur fichier {row['saxs_path']} {row['les_path']}: {e}")
+                    continue
 
                 metadata = self._convert_metadata(row)
-                self.hdf_data[0][current_size] = data_q
-                self.hdf_data[1][current_size] = data_y
-                self.hdf_data[2][current_size] = original_len
-                self.hdf_data[3][current_size] = idx
+                self.hdf_data[0][current_size] = data_q_saxs
+                self.hdf_data[1][current_size] = data_y_saxs
+                self.hdf_data[2][current_size] = data_q_les
+                self.hdf_data[3][current_size] = data_y_les
+                self.hdf_data[4][current_size] = original_len
+                self.hdf_data[5][current_size] = idx
                 for col in self.metadata_cols:
-                    self.hdf_data[4][col][current_size] = metadata[col]
+                    self.hdf_data[6][col][current_size] = metadata[col]
                 current_size += 1
 
                 if current_size == self.hdf_cache:
@@ -178,21 +199,35 @@ class TextToHDF5Converter:
             json.dump(self.conversion_dict, f)
         print(f"Conversion terminée, dictionnaire sauvegardé : {self.json_output}")
 
+        print(f"Nombre de fichiers valides {current_size} sur {len(self.dataframe)} fichiers au départ")
+
         print("Conversion terminée, dictionnaire sauvegardé.")
 
 
+import argparse
+
 if __name__ == "__main__":
-    data_csv_path = "/projects/pnria/DATA/AUTOFILL/all_data.csv"
+    parser = argparse.ArgumentParser(description="Convertir les métadonnées CSV et les données textuelles en format HDF5.")
+    parser.add_argument("--data_csv_path", type=str, required=True, help="Chemin vers le fichier de métadonnées CSV.")
+    parser.add_argument("--sep", type=str, default=";", required=False, help="Séparateur utilisé dans les fichiers CSV en entrée.")
+    parser.add_argument("--data_dir", type=str, required=True, help="Répertoire de base où sont situés les fichiers texte.")
+    parser.add_argument("--pad_size", type=int, default=500, help="Taille du padding pour les séries temporelles.")
+    parser.add_argument("--final_output_file", type=str, default="data.h5", help="Chemin du fichier HDF5 de sortie.")
+    parser.add_argument("--json_output", type=str, default="data.json", help="Chemin vers le fichier JSON de sortie (dictionnaire).")
 
-    if not os.path.exists(data_csv_path):
-        raise FileNotFoundError(f"CSV file not found: {data_csv_path}")
+    args = parser.parse_args()
 
-    dataframe = pd.read_csv(data_csv_path)
-    data_dir = '/projects/pnria/DATA/AUTOFILL/'
-    final_output_file = 'all_data.h5'
-    json_output = 'conversion_dict_all.json'
-    print(dataframe.columns)
-    print(dataframe.head())
-    converter = TextToHDF5Converter(dataframe=dataframe, data_dir=data_dir, output_dir='./', final_output_file=final_output_file, json_output=json_output)
+    if not os.path.exists(args.data_csv_path):
+        raise FileNotFoundError(f"CSV file not found: {args.data_csv_path}")
+
+    dataframe = pd.read_csv(args.data_csv_path, sep=args.sep)
+    converter = PairTextToHDF5Converter(
+        dataframe=dataframe,
+        data_dir=args.data_dir,
+        output_dir=os.path.dirname(args.final_output_file),
+        final_output_file=os.path.basename(args.final_output_file),
+        json_output=args.json_output,
+        pad_size=args.pad_size
+    )
     converter.convert()
-    print(f"Data successfully converted to {final_output_file}")
+    print(f"Données converties au format h5 : {args.final_output_file}")
